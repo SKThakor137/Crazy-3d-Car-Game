@@ -163,8 +163,8 @@ export class CarPhysics {
       this.state.driftIntensity = MathUtils.damp(this.state.driftIntensity, 0, p.gripRecovery, dt);
     }
 
-    // Yaw rotation
-    const speedTurnFactor = Math.max(0.45, Math.min(1.0, Math.abs(this.state.speed) / 12));
+    // Yaw rotation: ensure strong steering even at low/zero speed so car can turn away from walls
+    const speedTurnFactor = Math.max(0.85, Math.min(1.0, Math.abs(this.state.speed) / 10));
     const driftTurnMultiplier = this.state.isDrifting ? 1.45 : 1.0;
     const yawDelta = -this.state.steeringAngle * p.turnSpeed * speedTurnFactor * driftTurnMultiplier * dt;
 
@@ -280,9 +280,9 @@ export class CarPhysics {
     }
   }
 
-  // Prevent leaving track barriers and bounce off
+  // Prevent leaving track barriers and slide smoothly along guardrail
   private handleBarrierCollisions(): void {
-    const closest = MathUtils.getClosestTOnCurve(this.trackData.spline, this.state.position, 60);
+    const closest = MathUtils.getClosestTOnCurve(this.trackData.spline, this.state.position, 120);
     const trackPoint = closest.point;
     const tangent = this.trackData.spline.getTangentAt(closest.t).normalize();
     const up = new THREE.Vector3(0, 1, 0);
@@ -291,22 +291,33 @@ export class CarPhysics {
     // Compute car vector relative to track centerline
     const offsetFromCenter = this.state.position.clone().sub(trackPoint);
     const lateralDist = offsetFromCenter.dot(normal);
-    const maxLateral = (this.trackData.roadWidth ? this.trackData.roadWidth / 2 + 1.2 : 7.8);
+    const maxLateral = (this.trackData.roadWidth ? this.trackData.roadWidth / 2 + 1.0 : 7.8);
 
     if (Math.abs(lateralDist) > maxLateral) {
-      // Barrier collision!
+      // Barrier contact!
       const pushDirection = lateralDist > 0 ? -1 : 1;
       const penetration = Math.abs(lateralDist) - maxLateral;
 
-      // Push back inside track
-      this.state.position.add(normal.clone().multiplyScalar(pushDirection * penetration * 1.05));
+      // Push back to barrier boundary without jitter
+      this.state.position.add(normal.clone().multiplyScalar(pushDirection * penetration));
 
-      if (Math.abs(this.state.speed) > 2) {
-        // Damped restitution bounce
-        this.state.speed *= 0.65;
-        this.state.hasCollided = true;
-        this.state.collisionSeverity = Math.min(1.0, Math.abs(this.state.speed) / 25);
-        SoundSynth.playCollision(this.state.collisionSeverity);
+      // Direction car is heading
+      const headingVec = new THREE.Vector3(Math.sin(this.state.heading), 0, Math.cos(this.state.heading));
+      const dotWithNormal = headingVec.dot(normal);
+      const isDrivingIntoBarrier = (dotWithNormal * (lateralDist > 0 ? 1 : -1)) > 0;
+
+      // If pointing towards the barrier, smoothly deflect heading along track tangent
+      if (isDrivingIntoBarrier) {
+        const targetHeading = Math.atan2(tangent.x, tangent.z);
+        this.state.heading = THREE.MathUtils.lerp(this.state.heading, targetHeading, 0.12);
+
+        // Only lightly scrape if high speed — NEVER freeze car to 0
+        if (Math.abs(this.state.speed) > 12) {
+          this.state.speed *= 0.96;
+          this.state.hasCollided = true;
+          this.state.collisionSeverity = Math.min(0.6, Math.abs(this.state.speed) / 30);
+          SoundSynth.playCollision(this.state.collisionSeverity);
+        }
       }
     }
   }

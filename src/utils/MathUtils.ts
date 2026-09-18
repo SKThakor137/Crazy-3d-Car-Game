@@ -69,14 +69,37 @@ export class MathUtils {
       return { t: bestT, point: curve.getPointAt(bestT), distanceSq: minDistanceSq };
     }
 
-    // Global sample search
-    for (let i = 0; i <= samples; i++) {
-      const t = i / samples;
+    // Global sample search (use 150 samples by default)
+    const effectiveSamples = Math.max(samples, 150);
+    for (let i = 0; i <= effectiveSamples; i++) {
+      const t = i / effectiveSamples;
       curve.getPointAt(t, tempPoint);
       const distSq = tempPoint.distanceToSquared(position);
       if (distSq < minDistanceSq) {
         minDistanceSq = distSq;
         bestT = t;
+      }
+    }
+
+    // Iterative refinement around bestT for high-precision projection
+    let step = 1.0 / effectiveSamples;
+    for (let iter = 0; iter < 6; iter++) {
+      step *= 0.5;
+      const tMinus = (bestT - step + 1.0) % 1.0;
+      const tPlus = (bestT + step) % 1.0;
+
+      curve.getPointAt(tMinus, tempPoint);
+      const distMinus = tempPoint.distanceToSquared(position);
+
+      curve.getPointAt(tPlus, tempPoint);
+      const distPlus = tempPoint.distanceToSquared(position);
+
+      if (distMinus < minDistanceSq && distMinus <= distPlus) {
+        minDistanceSq = distMinus;
+        bestT = tMinus;
+      } else if (distPlus < minDistanceSq) {
+        minDistanceSq = distPlus;
+        bestT = tPlus;
       }
     }
 

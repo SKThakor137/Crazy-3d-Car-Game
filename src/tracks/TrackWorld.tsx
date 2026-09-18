@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { TrackConfig } from '../data/TrackConfigs';
 import { TrackData } from './TrackGenerator';
+import { MathUtils } from '../utils/MathUtils';
 
 interface TrackWorldProps {
   config: TrackConfig;
@@ -75,36 +76,48 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
     const sailboats: Array<{ pos: [number, number, number]; rotY: number; scale: number; sailColor: string }> = [];
     const umbrellas: Array<{ pos: [number, number, number]; color: string }> = [];
 
+    const minSideDist = config.roadWidth / 2 + 12;
+
     for (let i = 0; i < samples; i++) {
       const t = i / samples;
       const pt = spline.getPointAt(t);
       const tangent = spline.getTangentAt(t).normalize();
       const normal = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
 
-      // Place props on left and right sides
+      // Place props on left and right sides with safe setback
       const sideOffsets = [
-        -16 - Math.random() * 28,
-        16 + Math.random() * 28,
+        -minSideDist - Math.random() * 22,
+        minSideDist + Math.random() * 22,
       ];
 
       for (const offset of sideOffsets) {
         const pos = pt.clone().add(normal.clone().multiplyScalar(offset));
 
+        // Guarantee scenery NEVER spawns on any section of the racetrack
+        const nearestOnTrack = MathUtils.getClosestTOnCurve(spline, pos, 80);
+        const clearanceRequired = config.roadWidth / 2 + 7.5;
+        if (nearestOnTrack.distanceSq < clearanceRequired * clearanceRequired) {
+          continue; // skip, keep road completely clear!
+        }
+
+        // Ground height: props away from track rest firmly on ground level
+        const groundY = Math.max(0, pt.y * 0.15);
+
         if (config.theme === 'beach') {
           // Tropical Palm Trees
           if (Math.random() > 0.35) {
             palmTrees.push({
-              pos: [pos.x, pos.y, pos.z],
+              pos: [pos.x, groundY, pos.z],
               rotY: Math.random() * Math.PI * 2,
               scale: 0.85 + Math.random() * 0.4,
             });
           }
 
           // Beach umbrellas on sandy side
-          if (offset > 20 && Math.random() > 0.7) {
+          if (Math.abs(offset) > 20 && Math.random() > 0.7) {
             const umbrellaColors = ['#ff3b30', '#ff9500', '#007aff', '#ff2d55', '#ffcc00'];
             umbrellas.push({
-              pos: [pos.x, pos.y, pos.z],
+              pos: [pos.x, groundY, pos.z],
               color: umbrellaColors[Math.floor(Math.random() * umbrellaColors.length)],
             });
           }
@@ -112,48 +125,48 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
           // Coastal rocks along shore
           if (Math.random() > 0.75) {
             rocks.push({
-              pos: [pos.x, pos.y + 0.8, pos.z],
-              scale: [3 + Math.random() * 4, 2 + Math.random() * 3, 3 + Math.random() * 4],
+              pos: [pos.x, groundY + 0.4, pos.z],
+              scale: [3 + Math.random() * 2.5, 2 + Math.random() * 2, 3 + Math.random() * 2.5],
               color: '#8b8378',
             });
           }
         } else if (config.theme === 'forest') {
           // Lush Alpine Pine Trees
           pineTrees.push({
-            pos: [pos.x, pos.y, pos.z],
+            pos: [pos.x, groundY, pos.z],
             scale: 0.9 + Math.random() * 0.6,
           });
 
           // Mountain boulders
           if (Math.random() > 0.6) {
             rocks.push({
-              pos: [pos.x, pos.y + 1.2, pos.z],
-              scale: [4 + Math.random() * 6, 3 + Math.random() * 5, 4 + Math.random() * 6],
+              pos: [pos.x, groundY + 0.5, pos.z],
+              scale: [3.5 + Math.random() * 3, 2.5 + Math.random() * 2.5, 3.5 + Math.random() * 3],
               color: '#696969',
             });
           }
         } else if (config.theme === 'adventure') {
-          // Safari Acacia Trees along savanna
+          // Safari Acacia/Palm Trees along savanna
           if (t < 0.25 || t > 0.85) {
             palmTrees.push({
-              pos: [pos.x, pos.y, pos.z],
+              pos: [pos.x, groundY, pos.z],
               rotY: Math.random() * Math.PI * 2,
               scale: 0.85 + Math.random() * 0.4,
             });
           }
-          // Savannah Boulders
-          if (Math.random() > 0.5) {
+          // Savannah Boulders (cleanly off-road)
+          if (Math.random() > 0.55) {
             rocks.push({
-              pos: [pos.x, pos.y + 1.2, pos.z],
-              scale: [5 + Math.random() * 7, 4 + Math.random() * 6, 5 + Math.random() * 7],
+              pos: [pos.x, groundY + 0.5, pos.z],
+              scale: [3.5 + Math.random() * 3, 2.5 + Math.random() * 2.5, 3.5 + Math.random() * 3],
               color: '#8c6b45',
             });
           }
         } else {
           // Canyon Red Rock Mesas
           rocks.push({
-            pos: [pos.x, pos.y + 6, pos.z],
-            scale: [12 + Math.random() * 20, 16 + Math.random() * 30, 12 + Math.random() * 20],
+            pos: [pos.x, groundY + 4, pos.z],
+            scale: [8 + Math.random() * 12, 12 + Math.random() * 18, 8 + Math.random() * 12],
             color: Math.random() > 0.5 ? '#99441f' : '#b35924',
           });
         }
@@ -169,36 +182,36 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
     let mudBogPos: THREE.Vector3 | null = null;
 
     if (config.theme === 'adventure') {
-      // 1. Safari Elephants near river / waterhole
+      // 1. Safari Elephants near river / waterhole (grounded at y = 0)
       [0.22, 0.25, 0.27].forEach((tVal, idx) => {
         const pt = spline.getPointAt(tVal);
         const tangent = spline.getTangentAt(tVal).normalize();
         const normal = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
         const side = idx % 2 === 0 ? 1 : -1;
-        const ePos = pt.clone().add(normal.multiplyScalar(side * (20 + idx * 4)));
+        const ePos = pt.clone().add(normal.multiplyScalar(side * (24 + idx * 4)));
         elephants.push({
-          pos: [ePos.x, ePos.y, ePos.z],
+          pos: [ePos.x, 0, ePos.z],
           rotY: Math.atan2(tangent.x, tangent.z) + (side > 0 ? -1.2 : 1.2),
           scale: 1.1 + idx * 0.1,
         });
       });
 
-      // 2. Safari Giraffes under trees
+      // 2. Safari Giraffes under trees (grounded at y = 0)
       [0.20, 0.23, 0.28, 0.31].forEach((tVal, idx) => {
         const pt = spline.getPointAt(tVal);
         const tangent = spline.getTangentAt(tVal).normalize();
         const normal = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
         const side = idx % 2 === 0 ? -1 : 1;
-        const gPos = pt.clone().add(normal.multiplyScalar(side * (22 + idx * 3)));
+        const gPos = pt.clone().add(normal.multiplyScalar(side * (25 + idx * 3)));
         giraffes.push({
-          pos: [gPos.x, gPos.y, gPos.z],
+          pos: [gPos.x, 0, gPos.z],
           rotY: Math.atan2(tangent.x, tangent.z) + (side > 0 ? -0.8 : 0.8),
           scale: 1.0 + (idx % 2) * 0.2,
         });
       });
 
-      // 3. Mega Launch Ramps: Ramp 1 (t=0.16) and Ramp 2 (t=0.89)
-      [0.16, 0.89].forEach((tVal) => {
+      // 3. Mega Launch Ramps: Ramp 1 (t=0.13) and Ramp 2 (t=0.85)
+      [0.13, 0.85].forEach((tVal) => {
         const pt = spline.getPointAt(tVal);
         const tangent = spline.getTangentAt(tVal).normalize();
         megaRamps.push({
