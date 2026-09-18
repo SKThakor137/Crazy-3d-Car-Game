@@ -42,7 +42,7 @@ const DEFAULT_PROGRESS: GameProgress = {
     'viper-x': '#ff8400',
     'phantom-rs': '#ff0077',
   },
-  selectedTrackId: 'extreme-adventure',
+  selectedTrackId: 'tropical-beach',
   unlockedCars: ['apex-gt', 'viper-x', 'phantom-rs'],
   trackRecords: {
     'tropical-beach': { bestLapTime: 45.2, bestRaceTime: 140.0, wins: 0 },

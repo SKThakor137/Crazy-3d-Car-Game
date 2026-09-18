@@ -27,43 +27,74 @@ export interface TrackConfig {
 export const TRACKS_DATA: Record<string, TrackConfig> = {
   'tropical-beach': {
     id: 'tropical-beach',
-    name: 'PARADISE BEACH COAST',
-    subtitle: 'Sun-Drenched Ocean Boulevard',
-    description: 'Race along golden sand beaches, turquoise ocean waters, swaying palm trees, and breezy seaside straights.',
-    theme: 'beach',
+    name: 'PARADISE ADVENTURE SAFARI',
+    subtitle: 'Mega Jumps, River Rapids, Mud & Crystal Cavern',
+    description: 'The ultimate extreme expedition: launch off massive ramps over deep canyons, race past wild elephants and giraffes, splash through rushing river rapids, blast through mud bogs, and rocket through the glowing crystal mountain cave!',
+    theme: 'adventure',
     difficulty: 'Beginner',
     laps: 3,
-    lengthMeters: 2100,
-    roadWidth: 15,
-    sunPosition: [120, 100, 60],
-    sunColor: '#fff8ea',
-    ambientColor: '#cce6ff',
+    lengthMeters: 4200,
+    roadWidth: 14.5,
+    sunPosition: [80, 120, 70],
+    sunColor: '#fff5e0',
+    ambientColor: '#d6c29b',
     ambientIntensity: 1.8,
-    fogColor: '#bfe3f7',
-    fogNear: 180,
-    fogFar: 600,
-    skyBackground: '#4db8ff',
-    roadColor: '#32353b',
-    kerbPrimaryColor: '#ff3b30',
+    fogColor: '#dfbe92',
+    fogNear: 160,
+    fogFar: 650,
+    skyBackground: '#5bb8f5',
+    roadColor: '#3a332a',
+    kerbPrimaryColor: '#ff9900',
     kerbSecondaryColor: '#ffffff',
-    groundColor: '#dfc28d', // golden sand
-    barrierColor: '#ffffff', // white coastal seaside railings
+    groundColor: '#bfa075',
+    barrierColor: '#e0c080',
     controlPoints: [
-      [0, 0, 0],          // Start line near beach pier
-      [0, 0.5, -90],      // Oceanside straight
-      [-40, 2, -180],     // Gentle coastal bend
-      [-110, 3, -250],    // Sweeper overlooking open sea
-      [-190, 4, -260],    // Ocean cliff turn
-      [-260, 3, -190],    // Palm beach curve
-      [-270, 1, -100],    // Beachfront straight
-      [-220, 0, 0],       // Southern cove entry
-      [-160, 0.5, 80],    // Lagoon chicane
-      [-90, 1, 130],      // Sandbar straight
-      [-20, 2, 160],      // Resort curve
-      [50, 3, 150],       // Hillside view of the ocean
-      [110, 2, 90],       // Sweeping downhill to shore
-      [100, 0.5, 30],     // Final beach bend
-      [40, 0, 10],        // Home straight alignment
+      // ── START ZONE ──
+      [0, 0, 0],              // Safari starting gantry
+      [0, 1, -90],             // Opening straight
+      [10, 3, -170],           // Gentle uphill bend
+
+      // ── MEGA RAMP 1 ── (~t 0.10-0.16)
+      [40, 10, -250],          // Steep ramp climb
+      [80, 20, -310],          // MEGA JUMP 1: Canyon launch!
+      [140, 8, -350],          // Landing zone — big air drop
+
+      // ── SAVANNAH ANIMALS ZONE 1 ──
+      [210, 5, -330],          // Savannah entrance (elephants)
+      [280, 3, -280],          // Giraffe waterhole bend
+      [330, 2, -210],          // Animal run straight
+
+      // ── RIVER CROSSING (PANI) ── (~t 0.28-0.40)
+      [350, 0, -130],          // River approach descent
+      [340, -1.5, -50],        // RIVER ENTRY: Water splash!
+      [300, -1.2, 20],         // Deep rapids — rocks & spray
+      [250, -0.8, 70],         // River exit shallow bend
+      [200, 0, 110],           // Riverbank exit uphill
+
+      // ── MUD BOG (KICHAD) ── (~t 0.48-0.58)
+      [140, 1, 150],           // Mud trail approach
+      [70, 0.5, 180],          // MUD BOG: Thick mud zone!
+      [10, 1, 210],            // Mud chicane exit
+
+      // ── MOUNTAIN CLIMB ──
+      [-60, 5, 230],           // Mountain foothills
+      [-130, 12, 220],         // Steep mountain climb
+      [-190, 18, 190],         // High altitude ridge
+
+      // ── CRYSTAL CAVE (CAVE) ── (~t 0.68-0.82)
+      [-240, 24, 140],         // CAVE ENTRY: Crystal mountain arch
+      [-280, 28, 80],          // Deep crystal tunnel — glowing neon
+      [-300, 32, 10],          // MOUNTAIN SUMMIT (+32m peak!)
+      [-280, 26, -60],         // Cave exit — daylight
+
+      // ── MEGA RAMP 2 / ROLLERCOASTER DROP ── (~t 0.82-0.88)
+      [-240, 18, -120],        // ROLLERCOASTER DROP: Steep descent!
+      [-180, 8, -160],         // MEGA JUMP 2: Mountain drop launch!
+      [-120, 2, -140],         // High-speed landing zone
+
+      // ── RETURN STRAIGHT ──
+      [-70, 1, -100],          // S-curve through savannah
+      [-30, 0, -40],           // Final straight into finish gantry
     ],
   },
   'emerald-forest': {
@@ -221,4 +252,4 @@ export const TRACKS_DATA: Record<string, TrackConfig> = {
   },
 };
 
-export const DEFAULT_TRACK_ID = 'extreme-adventure';
+export const DEFAULT_TRACK_ID = 'tropical-beach';

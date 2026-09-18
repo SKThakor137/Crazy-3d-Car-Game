@@ -102,7 +102,7 @@ export const TrackSelectView: React.FC = () => {
               className={`arcade-glass rounded-3xl p-6 cursor-pointer transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
                 isSelected
                   ? 'ring-2 ring-cyan-400 shadow-[0_0_30px_rgba(0,240,255,0.25)] scale-[1.02]'
-                  : track.id === 'extreme-adventure'
+                  : track.theme === 'adventure'
                   ? 'border border-amber-500/50 hover:scale-[1.01] shadow-[0_0_20px_rgba(245,158,11,0.15)]'
                   : 'hover:border-cyan-500/50 hover:scale-[1.01] opacity-90'
               }`}
@@ -112,7 +112,7 @@ export const TrackSelectView: React.FC = () => {
                 <div className="flex justify-between items-start mb-3">
                   <span
                     className={`text-[10px] font-arcade font-bold px-2.5 py-1 rounded-md ${
-                      track.id === 'extreme-adventure'
+                      track.theme === 'adventure'
                         ? 'bg-gradient-to-r from-amber-500/30 via-orange-500/30 to-red-500/30 text-amber-300 border border-amber-500/60 shadow-sm shadow-amber-500/20 animate-pulse'
                         : track.difficulty === 'Beginner'
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
@@ -121,7 +121,7 @@ export const TrackSelectView: React.FC = () => {
                         : 'bg-orange-500/20 text-orange-400 border border-orange-500/40'
                     }`}
                   >
-                    {track.id === 'extreme-adventure' ? '🔥 ALL ADVENTURES IN 1' : track.difficulty.toUpperCase()}
+                    {track.theme === 'adventure' ? '🔥 ALL ADVENTURES IN 1' : track.difficulty.toUpperCase()}
                   </span>
 
                   <span className="text-xs font-arcade text-gray-400 flex items-center gap-1">
@@ -135,7 +135,7 @@ export const TrackSelectView: React.FC = () => {
                 <p className="text-gray-400 text-xs leading-relaxed mb-3">{track.description}</p>
 
                 {/* Adventure Feature Chips */}
-                {track.id === 'extreme-adventure' && (
+                {track.theme === 'adventure' && (
                   <div className="mb-4 flex flex-wrap gap-1 text-[9px] font-arcade font-bold">
                     <span className="bg-amber-500/25 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">🚀 2x MEGA JUMPS</span>
                     <span className="bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-md">🐘 WILD ANIMALS</span>

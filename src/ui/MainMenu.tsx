@@ -79,10 +79,10 @@ export const MainMenu: React.FC = () => {
             TRACK:
           </span>
           <span className="font-arcade text-white font-bold group-hover:text-cyan-400 transition-colors flex items-center gap-1.5 text-[11px]">
-            {TRACKS_DATA[selectedTrackId]?.name || 'ULTIMATE ADVENTURE SAFARI'}
-            {selectedTrackId === 'extreme-adventure' && (
+            {TRACKS_DATA[selectedTrackId]?.name || 'PARADISE ADVENTURE SAFARI'}
+            {(selectedTrackId === 'tropical-beach' || selectedTrackId === 'extreme-adventure') && (
               <span className="text-[9px] px-1.5 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/40 rounded-full animate-pulse">
-                🔥 SAFARI ADVENTURE
+                🔥 ADVENTURE SAFARI
               </span>
             )}
           </span>
