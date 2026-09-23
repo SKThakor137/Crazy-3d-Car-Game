@@ -265,20 +265,21 @@ export class CarPhysics {
     const isRampZone = isMegaRamp1 || isMegaRamp2;
 
     // Dhalan drop detection:
-    // When driving fast forward, if the road pitches downward rapidly (crested a hill into a descent),
-    // or if the car's forward speed carries it over the crest faster than gravity can hold it:
-    const isDhalanCrest = (roadPitchDelta < -0.8 && this.state.speed > 14);
-    const isHighElevationDrop = (this.lastTrackY - targetY) > 0.35 && this.state.speed > 16;
+    // When driving forward fast, if the road pitches downward into a descent (cresting a hill / dhalan),
+    // or if the ground falls away faster than gravity:
+    const isDhalanCrest = (roadPitchDelta < -0.22 && this.state.speed > 11) ||
+                          (trackPitch < -0.08 && roadPitchDelta < -0.10 && this.state.speed > 12);
+    const isHighElevationDrop = (this.lastTrackY - targetY) > 0.12 && this.state.speed > 12;
     this.lastTrackY = targetY;
 
     if (!this.state.isAirborne) {
       // Check launch condition:
       if (
-        (isRampZone && this.state.speed > 12) ||
-        (isDhalanCrest && this.state.speed > 15) ||
-        (isHighElevationDrop && this.state.speed > 18)
+        (isRampZone && this.state.speed > 11) ||
+        (isDhalanCrest && this.state.speed > 12) ||
+        (isHighElevationDrop && this.state.speed > 14)
       ) {
-        // LAUNCH DETACHMENT!
+        // LAUNCH DETACHMENT! Car launches into ballistic airborne flight!
         this.state.isAirborne = true;
         this.state.airTime = 0.05;
 
@@ -287,10 +288,10 @@ export class CarPhysics {
           this.state.verticalVelocity = Math.max(12.0, this.state.speed * 0.55 + (this.state.isBoosting ? 8 : 4));
           this.state.pitch = Math.max(0.35, trackPitch + 0.15);
         } else {
-          // Dhalan / Hill Crest: preserve upward vertical momentum
+          // Dhalan / Hill Crest: preserve upward momentum and launch cleanly into the drop
           const upwardMomentum = Math.max(0, roadVerticalSpeed);
-          this.state.verticalVelocity = upwardMomentum + (this.state.speed * 0.22) + (this.state.isBoosting ? 5 : 2);
-          this.state.pitch = Math.max(0.18, trackPitch);
+          this.state.verticalVelocity = upwardMomentum + Math.max(3.2, this.state.speed * 0.28) + (this.state.isBoosting ? 6 : 2);
+          this.state.pitch = Math.max(0.12, trackPitch + 0.08);
         }
 
         SoundSynth.playJumpLaunch();

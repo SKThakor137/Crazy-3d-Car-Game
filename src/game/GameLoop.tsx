@@ -16,7 +16,6 @@ import { CarPhysics } from '../cars/CarPhysics';
 import { SoundSynth } from '../audio/SoundSynth';
 import { MathUtils } from '../utils/MathUtils';
 import { TelemetryStore } from './TelemetryStore';
-import { PostProcessingPipeline } from '../effects/PostProcessingPipeline';
 
 export const GameLoop: React.FC = () => {
   const {
@@ -272,9 +271,6 @@ export const GameLoop: React.FC = () => {
       <VisualEffects
         physicsRef={playerPhysicsRef}
       />
-
-      {/* Cinematic Post-Processing Pipeline (Bloom, Tone Mapping, Optical Glow) */}
-      <PostProcessingPipeline enabled={settings.graphicsQuality !== 'low'} />
     </group>
   );
 };

@@ -20,13 +20,17 @@ const TrackingSunLight: React.FC<{
 }> = ({ config, physicsRef }) => {
   const lightRef = useRef<THREE.DirectionalLight>(null);
   const targetRef = useRef<THREE.Object3D>(null);
+  const lastTargetPos = useRef(new THREE.Vector3(-999, -999, -999));
 
   useFrame(() => {
     const p = physicsRef?.current?.state?.position;
     if (lightRef.current && targetRef.current && p) {
-      targetRef.current.position.set(p.x, p.y, p.z);
-      lightRef.current.position.set(p.x + 60, p.y + 105, p.z + 55);
-      lightRef.current.target = targetRef.current;
+      if (p.distanceToSquared(lastTargetPos.current) > 3.0) {
+        lastTargetPos.current.copy(p);
+        targetRef.current.position.set(p.x, p.y, p.z);
+        lightRef.current.position.set(p.x + 55, p.y + 90, p.z + 50);
+        lightRef.current.target = targetRef.current;
+      }
     }
   });
 
@@ -37,20 +41,115 @@ const TrackingSunLight: React.FC<{
         ref={lightRef}
         position={config.sunPosition}
         color={config.sunColor}
-        intensity={2.6}
+        intensity={2.5}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
         shadow-camera-near={10}
-        shadow-camera-far={260}
-        shadow-camera-left={-65}
-        shadow-camera-right={65}
-        shadow-camera-top={65}
-        shadow-camera-bottom={-65}
+        shadow-camera-far={220}
+        shadow-camera-left={-55}
+        shadow-camera-right={55}
+        shadow-camera-top={55}
+        shadow-camera-bottom={-55}
         shadow-bias={-0.0004}
-        shadow-normalBias={0.04}
+        shadow-normalBias={0.03}
       />
     </>
+  );
+};
+
+// 3D Mountain Slope Embankment Mesh beneath elevated road sections (fills vertical drop to ground)
+const MountainTerrainEmbankment: React.FC<{ spline: THREE.CatmullRomCurve3; roadWidth: number }> = ({ spline, roadWidth }) => {
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const colors: number[] = [];
+    const indices: number[] = [];
+    const steps = 240;
+    const halfW = roadWidth / 2;
+    const up = new THREE.Vector3(0, 1, 0);
+
+    let prevLeftBaseIdx = -1;
+    let prevLeftRoadIdx = -1;
+    let prevRightRoadIdx = -1;
+    let prevRightBaseIdx = -1;
+
+    let vertCounter = 0;
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const pt = spline.getPointAt(t);
+
+      // Only build mountain embankment where road elevation is above ground (pt.y > 0.8)
+      if (pt.y > 0.8) {
+        const tangent = spline.getTangentAt(t).normalize();
+        const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+
+        // Left and right road shoulders
+        const pL = pt.clone().add(normal.clone().multiplyScalar(-halfW - 0.4));
+        const pR = pt.clone().add(normal.clone().multiplyScalar(halfW + 0.4));
+
+        // Hillside slopes outward down to ground level (y = 0)
+        const slopeWidth = Math.max(14, pt.y * 1.9);
+        const pLBase = pt.clone().add(normal.clone().multiplyScalar(-halfW - slopeWidth));
+        pLBase.y = 0;
+
+        const pRBase = pt.clone().add(normal.clone().multiplyScalar(halfW + slopeWidth));
+        pRBase.y = 0;
+
+        const lbIdx = vertCounter++;
+        vertices.push(pLBase.x, pLBase.y, pLBase.z);
+        colors.push(0.46, 0.38, 0.28); // Earthy mountain base
+
+        const lrIdx = vertCounter++;
+        vertices.push(pL.x, pL.y, pL.z);
+        colors.push(0.56, 0.47, 0.36); // Rocky hillside ridge
+
+        const rrIdx = vertCounter++;
+        vertices.push(pR.x, pR.y, pR.z);
+        colors.push(0.56, 0.47, 0.36);
+
+        const rbIdx = vertCounter++;
+        vertices.push(pRBase.x, pRBase.y, pRBase.z);
+        colors.push(0.46, 0.38, 0.28);
+
+        if (prevLeftBaseIdx !== -1) {
+          // Left slope quad
+          indices.push(prevLeftBaseIdx, prevLeftRoadIdx, lrIdx);
+          indices.push(prevLeftBaseIdx, lrIdx, lbIdx);
+
+          // Under-road cliff center quad
+          indices.push(prevLeftRoadIdx, prevRightRoadIdx, rrIdx);
+          indices.push(prevLeftRoadIdx, rrIdx, lrIdx);
+
+          // Right slope quad
+          indices.push(prevRightRoadIdx, prevRightBaseIdx, rbIdx);
+          indices.push(prevRightRoadIdx, rbIdx, rrIdx);
+        }
+
+        prevLeftBaseIdx = lbIdx;
+        prevLeftRoadIdx = lrIdx;
+        prevRightRoadIdx = rrIdx;
+        prevRightBaseIdx = rbIdx;
+      } else {
+        prevLeftBaseIdx = -1;
+        prevLeftRoadIdx = -1;
+        prevRightRoadIdx = -1;
+        prevRightBaseIdx = -1;
+      }
+    }
+
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }, [spline, roadWidth]);
+
+  return (
+    <mesh geometry={geometry} receiveShadow castShadow>
+      <meshStandardMaterial vertexColors roughness={0.92} metalness={0.08} />
+    </mesh>
   );
 };
 
@@ -328,6 +427,9 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData, physi
 
       {/* Atmospheric Physical Sky, Cloud Clusters & PMREM Environment Reflections */}
       <ProceduralSkyEnv sunPosition={config.sunPosition} theme={config.theme} />
+
+      {/* 3D Mountain Slope Embankment beneath elevated road (realistic hillside for dhalan & mountain ridge) */}
+      <MountainTerrainEmbankment spline={trackData.spline} roadWidth={config.roadWidth} />
 
       {/* Ground Terrain (Lush Forest Grass or Golden Beach Sand) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.25, 0]} receiveShadow>

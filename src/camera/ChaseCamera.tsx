@@ -195,18 +195,26 @@ export const ChaseCamera: React.FC<ChaseCameraProps> = ({
         effectiveYaw += Math.sign(angleDiff) * Math.min(0.12, driftIntensity * 0.1);
       }
 
+      // Dynamic Dhalan / Slope Framing:
+      // When heading downhill into a dhalan (pitch < 0), tilt camera target DOWNWARD into the valley
+      // and slightly elevate camera position so the player clearly sees the road drop and descent!
+      const carPitch = physics ? physics.state.pitch : 0;
+      const isDownhill = carPitch < -0.04;
+      const dhalanPitchOffset = Math.sin(carPitch) * (targetAhead * 0.95);
+      const dhalanCamElev = isDownhill ? Math.min(1.4, Math.abs(carPitch) * 3.8) : 0;
+
       const desiredX = carPos.x - Math.sin(effectiveYaw) * dist;
       const desiredZ = carPos.z - Math.cos(effectiveYaw) * dist;
-      const desiredY = carPos.y + height;
+      const desiredY = carPos.y + height + dhalanCamElev;
 
       // Smooth vertical dampening to gracefully follow track hills and dips
       camPosY.current = MathUtils.damp(camPosY.current, desiredY, 14, dt);
       camera.position.set(desiredX, camPosY.current, desiredZ).add(shakeOffset.current);
 
-      // Target look-ahead: angles downward looking onto the track ahead
+      // Target look-ahead: angles downward looking onto the track and dhalan ahead
       const targetX = carPos.x + Math.sin(carHeading) * targetAhead;
       const targetZ = carPos.z + Math.cos(carHeading) * targetAhead;
-      const targetY = carPos.y + targetHeight;
+      const targetY = carPos.y + targetHeight + dhalanPitchOffset;
 
       camTarget.current.x = MathUtils.damp(camTarget.current.x, targetX, 16, dt);
       camTarget.current.y = MathUtils.damp(camTarget.current.y, targetY, 14, dt);

@@ -315,17 +315,15 @@ export const CarModel: React.FC<CarModelProps> = ({
           rotation={[-0.55, 0, 0]}
         >
           <planeGeometry args={[isMuscle ? 1.42 : 1.32, 0.8]} />
-          <meshPhysicalMaterial
-            color="#b8e2f8"
-            roughness={0.03}
-            metalness={0.1}
-            transmission={0.65}
-            ior={1.52}
+          <meshStandardMaterial
+            color="#c0e4f8"
+            roughness={0.05}
+            metalness={0.88}
             transparent
-            opacity={0.35}
+            opacity={0.3}
             depthWrite={false}
             side={THREE.DoubleSide}
-            envMapIntensity={1.6}
+            envMapIntensity={1.5}
           />
         </mesh>
 
@@ -335,49 +333,43 @@ export const CarModel: React.FC<CarModelProps> = ({
           rotation={[0.55, Math.PI, 0]}
         >
           <planeGeometry args={[isMuscle ? 1.38 : 1.28, 0.7]} />
-          <meshPhysicalMaterial
-            color="#b8e2f8"
-            roughness={0.03}
-            metalness={0.1}
-            transmission={0.65}
-            ior={1.52}
+          <meshStandardMaterial
+            color="#c0e4f8"
+            roughness={0.05}
+            metalness={0.88}
             transparent
-            opacity={0.35}
+            opacity={0.3}
             depthWrite={false}
             side={THREE.DoubleSide}
-            envMapIntensity={1.6}
+            envMapIntensity={1.5}
           />
         </mesh>
 
         {/* Side Windows (Left & Right) */}
         <mesh position={[-0.72, 0.62, -0.12]} rotation={[0, -Math.PI / 2, 0]}>
           <planeGeometry args={[1.25, 0.42]} />
-          <meshPhysicalMaterial
-            color="#b8e2f8"
-            roughness={0.03}
-            metalness={0.1}
-            transmission={0.65}
-            ior={1.52}
+          <meshStandardMaterial
+            color="#c0e4f8"
+            roughness={0.05}
+            metalness={0.88}
             transparent
-            opacity={0.3}
+            opacity={0.26}
             depthWrite={false}
             side={THREE.DoubleSide}
-            envMapIntensity={1.6}
+            envMapIntensity={1.5}
           />
         </mesh>
         <mesh position={[0.72, 0.62, -0.12]} rotation={[0, Math.PI / 2, 0]}>
           <planeGeometry args={[1.25, 0.42]} />
-          <meshPhysicalMaterial
-            color="#b8e2f8"
-            roughness={0.03}
-            metalness={0.1}
-            transmission={0.65}
-            ior={1.52}
+          <meshStandardMaterial
+            color="#c0e4f8"
+            roughness={0.05}
+            metalness={0.88}
             transparent
-            opacity={0.3}
+            opacity={0.26}
             depthWrite={false}
             side={THREE.DoubleSide}
-            envMapIntensity={1.6}
+            envMapIntensity={1.5}
           />
         </mesh>
 
@@ -438,7 +430,7 @@ export const CarModel: React.FC<CarModelProps> = ({
           {/* Projector Glass Lens */}
           <mesh position={[0, 0, 0.045]}>
             <planeGeometry args={[0.35, 0.12]} />
-            <meshPhysicalMaterial color="#ffffff" transmission={0.9} roughness={0.02} transparent opacity={0.6} />
+            <meshStandardMaterial color="#ffffff" roughness={0.05} metalness={0.7} transparent opacity={0.35} />
           </mesh>
         </group>
         <group position={[0.72, 0.16, 2.12]}>
@@ -453,7 +445,7 @@ export const CarModel: React.FC<CarModelProps> = ({
           {/* Projector Glass Lens */}
           <mesh position={[0, 0, 0.045]}>
             <planeGeometry args={[0.35, 0.12]} />
-            <meshPhysicalMaterial color="#ffffff" transmission={0.9} roughness={0.02} transparent opacity={0.6} />
+            <meshStandardMaterial color="#ffffff" roughness={0.05} metalness={0.7} transparent opacity={0.35} />
           </mesh>
         </group>
 

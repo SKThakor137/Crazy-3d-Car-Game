@@ -120,23 +120,21 @@ export const ProceduralSkyEnv: React.FC<ProceduralSkyEnvProps> = ({
           <group key={idx} position={[c.x, c.y, c.z]}>
             {/* Center cloud puff */}
             <mesh scale={c.scale}>
-              <sphereGeometry args={[1, 12, 10]} />
-              <meshStandardMaterial
+              <sphereGeometry args={[1, 10, 8]} />
+              <meshBasicMaterial
                 color="#ffffff"
-                roughness={0.95}
                 transparent
-                opacity={c.opacity}
+                opacity={c.opacity * 0.7}
                 depthWrite={false}
               />
             </mesh>
             {/* Flanking secondary puff */}
             <mesh position={[c.scale[0] * 0.4, -2, 0]} scale={[c.scale[0] * 0.7, c.scale[1] * 0.85, c.scale[2] * 0.8]}>
-              <sphereGeometry args={[1, 10, 8]} />
-              <meshStandardMaterial
-                color="#f8fafc"
-                roughness={0.95}
+              <sphereGeometry args={[1, 8, 6]} />
+              <meshBasicMaterial
+                color="#f1f5f9"
                 transparent
-                opacity={c.opacity * 0.9}
+                opacity={c.opacity * 0.6}
                 depthWrite={false}
               />
             </mesh>
