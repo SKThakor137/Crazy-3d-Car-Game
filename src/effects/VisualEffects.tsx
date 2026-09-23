@@ -17,7 +17,7 @@ interface VisualEffectsProps {
 
 const MAX_SKID_POINTS = 160;
 const MAX_SMOKE_PARTICLES = 50;
-const MAX_HAZARD_PARTICLES = 40;
+const MAX_HAZARD_PARTICLES = 100;
 
 export const VisualEffects: React.FC<VisualEffectsProps> = ({
   physicsRef,
@@ -170,22 +170,32 @@ export const VisualEffects: React.FC<VisualEffectsProps> = ({
       }
     }
 
-    // 4. Emit Mud Splatter Particles
-    if (isMud && Math.abs(carSpeed) > 6) {
-      if (mudParticles.current.length < MAX_HAZARD_PARTICLES) {
+    // 4. Emit Mud Splatter Particles (Heavy dual-wheel rooster-tails)
+    if (isMud && Math.abs(carSpeed) > 1.5) {
+      const forwardX = Math.sin(carHeading);
+      const forwardZ = Math.cos(carHeading);
+      const rightX = Math.cos(carHeading);
+      const rightZ = -Math.sin(carHeading);
+
+      const spawnCount = Math.min(5, Math.floor(Math.abs(carSpeed) * 0.4) + 2);
+      for (let s = 0; s < spawnCount; s++) {
+        if (mudParticles.current.length >= MAX_HAZARD_PARTICLES) break;
+        const isRightWheel = Math.random() > 0.5;
+        const sideSign = isRightWheel ? 0.85 : -0.85;
+        const posX = carPosition.x - forwardX * 1.3 + rightX * sideSign + (Math.random() - 0.5) * 0.35;
+        const posY = carPosition.y + 0.12;
+        const posZ = carPosition.z - forwardZ * 1.3 + rightZ * sideSign + (Math.random() - 0.5) * 0.35;
+
+        const speedFactor = Math.min(Math.abs(carSpeed) / 10, 1.6);
+        const velX = -forwardX * (2.5 + Math.random() * 4.0) * speedFactor + (Math.random() - 0.5) * 2.0;
+        const velY = 2.8 + Math.random() * 4.0; // High arc upward
+        const velZ = -forwardZ * (2.5 + Math.random() * 4.0) * speedFactor + (Math.random() - 0.5) * 2.0;
+
         mudParticles.current.push({
-          pos: new THREE.Vector3(
-            carPosition.x - Math.sin(carHeading) * 1.4 + (Math.random() - 0.5) * 1.6,
-            carPosition.y + 0.1,
-            carPosition.z - Math.cos(carHeading) * 1.4 + (Math.random() - 0.5) * 1.6
-          ),
-          vel: new THREE.Vector3(
-            (Math.random() - 0.5) * 2.5,
-            1.8 + Math.random() * 2.5,
-            (Math.random() - 0.5) * 2.5
-          ),
+          pos: new THREE.Vector3(posX, posY, posZ),
+          vel: new THREE.Vector3(velX, velY, velZ),
           life: 0,
-          maxLife: 0.45 + Math.random() * 0.25,
+          maxLife: 0.55 + Math.random() * 0.35,
         });
       }
     }
@@ -342,10 +352,10 @@ export const VisualEffects: React.FC<VisualEffectsProps> = ({
           />
         </bufferGeometry>
         <pointsMaterial
-          size={2.2}
-          color="#422a14"
+          size={3.2}
+          color="#341e0b"
           transparent
-          opacity={0.75}
+          opacity={0.88}
           depthWrite={false}
         />
       </points>

@@ -42,6 +42,7 @@ export class CarPhysics {
   private targetHeading = 0;
   private lastTrackY = 0;
   private lastTrackPitch = 0;
+  private uphillClimbTimer = 0;
 
   constructor(
     config: CarConfig,
@@ -242,42 +243,61 @@ export class CarPhysics {
       this.state.speed *= (1.0 - 0.08 * dt);
     }
 
-    // 2. Mud zone (continuous mud highway)
+    // 2. Mud zone (deep off-road mud bogging — PUBG / Vice City style)
     const inMud = (t >= 0.46 && t <= 0.58);
     this.state.isMudHazard = inMud;
-    if (inMud && !this.state.isBoosting) {
-      // Viscous rolling resistance in deep mud unless boosting
-      this.state.speed *= (1.0 - 0.36 * dt);
+    if (inMud) {
+      if (!this.state.isBoosting) {
+        // Physical sinking: tires sink 0.22m into deep mud ruts!
+        this.state.suspensionDip = MathUtils.damp(this.state.suspensionDip, 0.24, 6, dt);
+        // Heavy viscous bog drag: slows car down to heavy chugging crawl (~22-26 km/h)
+        const targetMudSpeed = Math.sign(this.state.speed) * Math.min(Math.abs(this.state.speed), 7.2);
+        this.state.speed = MathUtils.damp(this.state.speed, targetMudSpeed, 3.2, dt);
+        // Loose rally fishtailing
+        this.state.isDrifting = Math.abs(this.state.speed) > 3;
+        this.state.driftIntensity = 0.9;
+      } else {
+        // Nitro blast cuts through thick mud!
+        this.state.suspensionDip = MathUtils.damp(this.state.suspensionDip, 0.08, 8, dt);
+      }
+
+      // Squelching bubbling mud churn sound
+      if (Math.abs(this.state.speed) > 2.5 && Math.random() < 0.22) {
+        SoundSynth.playMudSplat();
+      }
     }
 
     // 3. Cave zone (continuous subterranean tunnel)
     this.state.isCaveZone = (t >= 0.66 && t <= 0.82);
 
-    // 4. Slope / Dhalan / Jump Launch Detection
+    // 4. Slope / Dhalan / Jump Launch Detection (ONLY jump after climbing a slope!)
     // Track vertical change rate (m/s)
     const roadVerticalSpeed = this.state.speed * Math.sin(trackPitch);
     const roadPitchDelta = (trackPitch - this.lastTrackPitch) / Math.max(0.001, dt);
     this.lastTrackPitch = trackPitch;
+
+    // Track whether the car was recently climbing an uphill slope ("dhalan chadke")
+    if (trackPitch > 0.04 && this.state.speed > 8) {
+      this.uphillClimbTimer = 0.6; // remember climbing for 0.6 seconds
+    } else {
+      this.uphillClimbTimer = Math.max(0, this.uphillClimbTimer - dt);
+    }
 
     // Mega launch ramp zones
     const isMegaRamp1 = (t >= 0.10 && t <= 0.15);
     const isMegaRamp2 = (t >= 0.81 && t <= 0.86);
     const isRampZone = isMegaRamp1 || isMegaRamp2;
 
-    // Dhalan drop detection:
-    // When driving forward fast, if the road pitches downward into a descent (cresting a hill / dhalan),
-    // or if the ground falls away faster than gravity:
-    const isDhalanCrest = (roadPitchDelta < -0.22 && this.state.speed > 11) ||
-                          (trackPitch < -0.08 && roadPitchDelta < -0.10 && this.state.speed > 12);
-    const isHighElevationDrop = (this.lastTrackY - targetY) > 0.12 && this.state.speed > 12;
+    // Crest drop: ONLY triggers if the car climbed a slope first and now crests over the peak at speed!
+    const isDhalanCrest = (this.uphillClimbTimer > 0) &&
+                          (roadPitchDelta < -0.16 && this.state.speed > 13);
     this.lastTrackY = targetY;
 
     if (!this.state.isAirborne) {
-      // Check launch condition:
+      // Check launch condition: ONLY ramps or climbing crests, NEVER flat road!
       if (
         (isRampZone && this.state.speed > 11) ||
-        (isDhalanCrest && this.state.speed > 12) ||
-        (isHighElevationDrop && this.state.speed > 14)
+        (isDhalanCrest && this.state.speed > 13)
       ) {
         // LAUNCH DETACHMENT! Car launches into ballistic airborne flight!
         this.state.isAirborne = true;
@@ -290,7 +310,7 @@ export class CarPhysics {
         } else {
           // Dhalan / Hill Crest: preserve upward momentum and launch cleanly into the drop
           const upwardMomentum = Math.max(0, roadVerticalSpeed);
-          this.state.verticalVelocity = upwardMomentum + Math.max(3.2, this.state.speed * 0.28) + (this.state.isBoosting ? 6 : 2);
+          this.state.verticalVelocity = upwardMomentum + Math.max(3.5, this.state.speed * 0.3) + (this.state.isBoosting ? 6 : 2);
           this.state.pitch = Math.max(0.12, trackPitch + 0.08);
         }
 
