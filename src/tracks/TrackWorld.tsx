@@ -1,45 +1,107 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { TrackConfig } from '../data/TrackConfigs';
 import { TrackData } from './TrackGenerator';
 import { MathUtils } from '../utils/MathUtils';
+import { CarPhysics } from '../cars/CarPhysics';
+import { ProceduralSkyEnv } from '../effects/ProceduralSkyEnv';
 
 interface TrackWorldProps {
   config: TrackConfig;
   trackData: TrackData;
+  physicsRef?: React.MutableRefObject<CarPhysics | null>;
 }
 
-export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => {
-  // Generate asphalt texture procedurally with road markings
+// Dynamic Player-Tracking Sun Light with Razor-Sharp 2048px Soft Shadows
+const TrackingSunLight: React.FC<{
+  config: TrackConfig;
+  physicsRef?: React.MutableRefObject<CarPhysics | null>;
+}> = ({ config, physicsRef }) => {
+  const lightRef = useRef<THREE.DirectionalLight>(null);
+  const targetRef = useRef<THREE.Object3D>(null);
+
+  useFrame(() => {
+    const p = physicsRef?.current?.state?.position;
+    if (lightRef.current && targetRef.current && p) {
+      targetRef.current.position.set(p.x, p.y, p.z);
+      lightRef.current.position.set(p.x + 60, p.y + 105, p.z + 55);
+      lightRef.current.target = targetRef.current;
+    }
+  });
+
+  return (
+    <>
+      <object3D ref={targetRef} position={[0, 0, 0]} />
+      <directionalLight
+        ref={lightRef}
+        position={config.sunPosition}
+        color={config.sunColor}
+        intensity={2.6}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-near={10}
+        shadow-camera-far={260}
+        shadow-camera-left={-65}
+        shadow-camera-right={65}
+        shadow-camera-top={65}
+        shadow-camera-bottom={-65}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.04}
+      />
+    </>
+  );
+};
+
+export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData, physicsRef }) => {
+  // Generate authentic multi-layer competition asphalt texture
   const roadTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 512;
     const ctx = canvas.getContext('2d')!;
 
-    // Asphalt base
-    ctx.fillStyle = config.roadColor;
+    // 1. Bitumen base
+    ctx.fillStyle = config.roadColor || '#221f1c';
     ctx.fillRect(0, 0, 512, 512);
 
-    // Asphalt speckle texture
-    for (let i = 0; i < 3000; i++) {
+    // 2. High-density stone aggregate grain (black basalt, gray granite, limestone flecks)
+    for (let i = 0; i < 7000; i++) {
       const x = Math.random() * 512;
       const y = Math.random() * 512;
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.04})`;
-      ctx.fillRect(x, y, 2, 2);
+      const shade = Math.random();
+      if (shade > 0.6) {
+        ctx.fillStyle = `rgba(240, 240, 250, ${Math.random() * 0.08})`; // granite/limestone fleck
+      } else if (shade > 0.3) {
+        ctx.fillStyle = `rgba(10, 10, 15, ${Math.random() * 0.15})`; // black basalt aggregate
+      } else {
+        ctx.fillStyle = `rgba(160, 150, 140, ${Math.random() * 0.05})`; // dusty sand aggregate
+      }
+      const s = Math.random() * 2 + 1;
+      ctx.fillRect(x, y, s, s);
     }
 
-    // Outer white lane borders
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(16, 0, 8, 512);
-    ctx.fillRect(512 - 24, 0, 8, 512);
+    // 3. Dark rubber racing groove lines (grooves left by race tires)
+    ctx.fillStyle = 'rgba(12, 10, 8, 0.38)';
+    ctx.fillRect(70, 0, 140, 512);  // Left tire track
+    ctx.fillRect(302, 0, 140, 512); // Right tire track
 
-    // Center dividing line (dashed yellow)
-    ctx.fillStyle = '#ffcc00';
+    // 4. Longitudinal tar expansion seam down road center
+    ctx.fillStyle = 'rgba(10, 8, 6, 0.45)';
+    ctx.fillRect(254, 0, 4, 512);
+
+    // 5. Outer white lane borders with retro-reflective glass bead effect
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(16, 0, 10, 512);
+    ctx.fillRect(512 - 26, 0, 10, 512);
+
+    // 6. Center dividing line (dashed competition yellow)
+    ctx.fillStyle = '#ffbe1a';
     const dashLength = 64;
-    const gapLength = 64;
+    const gapLength = 56;
     for (let y = 16; y < 512; y += dashLength + gapLength) {
-      ctx.fillRect(252, y, 8, dashLength);
+      ctx.fillRect(250, y, 12, dashLength);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -259,30 +321,13 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
 
   return (
     <group>
-      {/* Natural Outdoor Lighting & Sky Atmosphere */}
+      {/* Natural Outdoor Lighting with Dynamic Player-Tracking Shadows */}
       <ambientLight color={config.ambientColor} intensity={config.ambientIntensity} />
-      <directionalLight
-        position={config.sunPosition}
-        color={config.sunColor}
-        intensity={2.4}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-near={10}
-        shadow-camera-far={500}
-        shadow-camera-left={-200}
-        shadow-camera-right={200}
-        shadow-camera-top={200}
-        shadow-camera-bottom={-200}
-        shadow-bias={-0.0005}
-      />
+      <TrackingSunLight config={config} physicsRef={physicsRef} />
       <fog attach="fog" args={[config.fogColor, config.fogNear, config.fogFar]} />
 
-      {/* Sky Sphere Dome */}
-      <mesh>
-        <sphereGeometry args={[700, 32, 16]} />
-        <meshBasicMaterial color={config.skyBackground} side={THREE.BackSide} />
-      </mesh>
+      {/* Atmospheric Physical Sky, Cloud Clusters & PMREM Environment Reflections */}
+      <ProceduralSkyEnv sunPosition={config.sunPosition} theme={config.theme} />
 
       {/* Ground Terrain (Lush Forest Grass or Golden Beach Sand) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.25, 0]} receiveShadow>
@@ -326,8 +371,9 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
       <mesh geometry={trackData.roadGeometry} receiveShadow>
         <meshStandardMaterial
           map={roadTexture}
-          roughness={0.65}
-          metalness={0.12}
+          roughness={0.55}
+          metalness={0.16}
+          envMapIntensity={0.75}
           polygonOffset
           polygonOffsetFactor={-1}
         />
@@ -335,25 +381,27 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
 
       {/* Kerbs (Vertex Colored) */}
       <mesh geometry={trackData.kerbLeftGeometry} receiveShadow castShadow>
-        <meshStandardMaterial vertexColors roughness={0.7} />
+        <meshStandardMaterial vertexColors roughness={0.65} metalness={0.1} envMapIntensity={0.5} />
       </mesh>
       <mesh geometry={trackData.kerbRightGeometry} receiveShadow castShadow>
-        <meshStandardMaterial vertexColors roughness={0.7} />
+        <meshStandardMaterial vertexColors roughness={0.65} metalness={0.1} envMapIntensity={0.5} />
       </mesh>
 
       {/* Low-Profile Sleek Guardrails (Open views over the scenery) */}
       <mesh geometry={trackData.barrierLeftGeometry} castShadow receiveShadow>
         <meshStandardMaterial
           color={config.barrierColor}
-          metalness={config.theme === 'forest' ? 0.2 : 0.8}
-          roughness={config.theme === 'forest' ? 0.85 : 0.3}
+          metalness={config.theme === 'forest' ? 0.2 : 0.88}
+          roughness={config.theme === 'forest' ? 0.85 : 0.22}
+          envMapIntensity={1.1}
         />
       </mesh>
       <mesh geometry={trackData.barrierRightGeometry} castShadow receiveShadow>
         <meshStandardMaterial
           color={config.barrierColor}
-          metalness={config.theme === 'forest' ? 0.2 : 0.8}
-          roughness={config.theme === 'forest' ? 0.85 : 0.3}
+          metalness={config.theme === 'forest' ? 0.2 : 0.88}
+          roughness={config.theme === 'forest' ? 0.85 : 0.22}
+          envMapIntensity={1.1}
         />
       </mesh>
 

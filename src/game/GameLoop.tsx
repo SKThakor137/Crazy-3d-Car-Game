@@ -16,6 +16,7 @@ import { CarPhysics } from '../cars/CarPhysics';
 import { SoundSynth } from '../audio/SoundSynth';
 import { MathUtils } from '../utils/MathUtils';
 import { TelemetryStore } from './TelemetryStore';
+import { PostProcessingPipeline } from '../effects/PostProcessingPipeline';
 
 export const GameLoop: React.FC = () => {
   const {
@@ -233,8 +234,8 @@ export const GameLoop: React.FC = () => {
 
   return (
     <group>
-      {/* 3D Track & Environment Scenery */}
-      <TrackWorld config={trackConfig} trackData={trackData} />
+      {/* 3D Track & Environment Scenery with Dynamic Player-Tracking Shadows */}
+      <TrackWorld config={trackConfig} trackData={trackData} physicsRef={playerPhysicsRef} />
 
       {/* Player Vehicle */}
       <PlayerCar
@@ -271,6 +272,9 @@ export const GameLoop: React.FC = () => {
       <VisualEffects
         physicsRef={playerPhysicsRef}
       />
+
+      {/* Cinematic Post-Processing Pipeline (Bloom, Tone Mapping, Optical Glow) */}
+      <PostProcessingPipeline enabled={settings.graphicsQuality !== 'low'} />
     </group>
   );
 };

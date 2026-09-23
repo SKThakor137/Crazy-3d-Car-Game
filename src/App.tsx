@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { GameStateProvider, useGame } from './game/GameStateContext';
 import { InputManager } from './game/InputManager';
@@ -70,6 +71,16 @@ const GameContainer: React.FC = () => {
               gl={{
                 antialias: settings.graphicsQuality !== 'low',
                 powerPreference: 'high-performance',
+                toneMapping: THREE.ACESFilmicToneMapping,
+                toneMappingExposure: 1.05,
+              }}
+              onCreated={({ gl }) => {
+                gl.toneMapping = THREE.ACESFilmicToneMapping;
+                gl.toneMappingExposure = 1.05;
+                if (shadowsEnabled) {
+                  gl.shadowMap.enabled = true;
+                  gl.shadowMap.type = THREE.PCFSoftShadowMap;
+                }
               }}
             >
               <GameLoop />

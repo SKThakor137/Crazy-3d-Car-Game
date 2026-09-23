@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { CarConfig } from '../data/CarConfigs';
@@ -41,6 +41,22 @@ export const CarModel: React.FC<CarModelProps> = ({
   const reverseLightsGroupRef = useRef<THREE.Group>(null);
 
   const wheelSpinRef = useRef(0);
+
+  // Soft ambient occlusion contact shadow beneath the car chassis
+  const contactShadowTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(64, 128, 15, 64, 128, 64);
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.82)');
+    grad.addColorStop(0.4, 'rgba(0, 0, 0, 0.45)');
+    grad.addColorStop(0.75, 'rgba(0, 0, 0, 0.15)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 256);
+    return new THREE.CanvasTexture(canvas);
+  }, []);
 
   // Animate wheel rotation and reactive visual states
   useFrame((_, delta) => {
@@ -97,34 +113,62 @@ export const CarModel: React.FC<CarModelProps> = ({
 
   return (
     <group>
+      {/* --- SOFT AMBIENT OCCLUSION UNDERBODY CONTACT SHADOW --- */}
+      <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.3, 4.6]} />
+        <meshBasicMaterial
+          map={contactShadowTexture}
+          transparent
+          opacity={0.82}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* --- CHASSIS / MAIN BODY --- */}
       <group position={[0, 0.45, 0]}>
         {/* Lower body base */}
         <mesh castShadow receiveShadow position={[0, 0.1, 0]}>
           <boxGeometry args={[isMuscle ? 2.1 : 1.95, 0.35, isHyper ? 4.4 : 4.2]} />
-          <meshStandardMaterial
+          <meshPhysicalMaterial
             color={color}
-            metalness={0.85}
-            roughness={0.2}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
           />
         </mesh>
 
         {/* Nose / Front Bumper */}
         <mesh castShadow receiveShadow position={[0, 0.05, 1.95]}>
           <boxGeometry args={[isMuscle ? 2.05 : 1.85, 0.28, 0.5]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
 
         {/* Front Splitter / Carbon Underbody */}
         <mesh position={[0, -0.05, 2.1]}>
           <boxGeometry args={[isMuscle ? 2.15 : 1.95, 0.06, 0.4]} />
-          <meshStandardMaterial color="#111115" roughness={0.4} metalness={0.6} />
+          <meshStandardMaterial color="#0e0e12" roughness={0.3} metalness={0.7} />
         </mesh>
 
         {/* Hood */}
         <mesh castShadow receiveShadow position={[0, 0.26, 1.1]} rotation={[-0.08, 0, 0]}>
           <boxGeometry args={[isMuscle ? 1.9 : 1.75, 0.18, 1.6]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
 
         {/* Muscle Hood Scoop (Viper X only) */}
@@ -206,27 +250,62 @@ export const CarModel: React.FC<CarModelProps> = ({
           position={[0, isHyper ? 0.72 : 0.82, isHyper ? -0.22 : -0.12]}
         >
           <boxGeometry args={[isMuscle ? 1.5 : 1.38, 0.06, isHyper ? 1.25 : 1.15]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
 
         {/* Left & Right A-Pillars (Front Frame) */}
         <mesh position={[-0.68, 0.58, 0.35]} rotation={[-0.45, 0, 0.1]}>
           <boxGeometry args={[0.07, 0.65, 0.07]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
         <mesh position={[0.68, 0.58, 0.35]} rotation={[-0.45, 0, -0.1]}>
           <boxGeometry args={[0.07, 0.65, 0.07]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
 
         {/* Left & Right C-Pillars (Rear Frame) */}
         <mesh position={[-0.68, 0.58, -0.65]} rotation={[0.45, 0, -0.1]}>
           <boxGeometry args={[0.07, 0.65, 0.07]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
         <mesh position={[0.68, 0.58, -0.65]} rotation={[0.45, 0, 0.1]}>
           <boxGeometry args={[0.07, 0.65, 0.07]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
 
         {/* ─── CRYSTAL-CLEAR TINTED WINDOWS ─── */}
@@ -236,14 +315,17 @@ export const CarModel: React.FC<CarModelProps> = ({
           rotation={[-0.55, 0, 0]}
         >
           <planeGeometry args={[isMuscle ? 1.42 : 1.32, 0.8]} />
-          <meshStandardMaterial
-            color="#c2e3f8"
-            roughness={0.06}
-            metalness={0.12}
+          <meshPhysicalMaterial
+            color="#b8e2f8"
+            roughness={0.03}
+            metalness={0.1}
+            transmission={0.65}
+            ior={1.52}
             transparent
-            opacity={0.28}
+            opacity={0.35}
             depthWrite={false}
             side={THREE.DoubleSide}
+            envMapIntensity={1.6}
           />
         </mesh>
 
@@ -253,47 +335,63 @@ export const CarModel: React.FC<CarModelProps> = ({
           rotation={[0.55, Math.PI, 0]}
         >
           <planeGeometry args={[isMuscle ? 1.38 : 1.28, 0.7]} />
-          <meshStandardMaterial
-            color="#c2e3f8"
-            roughness={0.06}
-            metalness={0.12}
+          <meshPhysicalMaterial
+            color="#b8e2f8"
+            roughness={0.03}
+            metalness={0.1}
+            transmission={0.65}
+            ior={1.52}
             transparent
-            opacity={0.28}
+            opacity={0.35}
             depthWrite={false}
             side={THREE.DoubleSide}
+            envMapIntensity={1.6}
           />
         </mesh>
 
         {/* Side Windows (Left & Right) */}
         <mesh position={[-0.72, 0.62, -0.12]} rotation={[0, -Math.PI / 2, 0]}>
           <planeGeometry args={[1.25, 0.42]} />
-          <meshStandardMaterial
-            color="#c2e3f8"
-            roughness={0.06}
-            metalness={0.12}
+          <meshPhysicalMaterial
+            color="#b8e2f8"
+            roughness={0.03}
+            metalness={0.1}
+            transmission={0.65}
+            ior={1.52}
             transparent
-            opacity={0.24}
+            opacity={0.3}
             depthWrite={false}
             side={THREE.DoubleSide}
+            envMapIntensity={1.6}
           />
         </mesh>
         <mesh position={[0.72, 0.62, -0.12]} rotation={[0, Math.PI / 2, 0]}>
           <planeGeometry args={[1.25, 0.42]} />
-          <meshStandardMaterial
-            color="#c2e3f8"
-            roughness={0.06}
-            metalness={0.12}
+          <meshPhysicalMaterial
+            color="#b8e2f8"
+            roughness={0.03}
+            metalness={0.1}
+            transmission={0.65}
+            ior={1.52}
             transparent
-            opacity={0.24}
+            opacity={0.3}
             depthWrite={false}
             side={THREE.DoubleSide}
+            envMapIntensity={1.6}
           />
         </mesh>
 
         {/* Rear Trunk / Deck */}
         <mesh castShadow receiveShadow position={[0, 0.3, -1.6]}>
           <boxGeometry args={[isMuscle ? 1.95 : 1.8, 0.32, 1.2]} />
-          <meshStandardMaterial color={color} metalness={0.85} roughness={0.2} />
+          <meshPhysicalMaterial
+            color={color}
+            metalness={0.88}
+            roughness={0.15}
+            clearcoat={1.0}
+            clearcoatRoughness={0.06}
+            envMapIntensity={1.3}
+          />
         </mesh>
 
         {/* Rear Diffuser */}
@@ -316,28 +414,48 @@ export const CarModel: React.FC<CarModelProps> = ({
           {/* Spoiler blade */}
           <mesh castShadow position={[0, 0.05, 0]} rotation={[-0.08, 0, 0]}>
             <boxGeometry args={[isHyper ? 2.2 : isMuscle ? 2.0 : 1.85, 0.06, 0.45]} />
-            <meshStandardMaterial color="#111115" metalness={0.8} roughness={0.3} />
+            <meshPhysicalMaterial
+              color="#111115"
+              metalness={0.85}
+              roughness={0.2}
+              clearcoat={0.9}
+              clearcoatRoughness={0.1}
+            />
           </mesh>
         </group>
 
         {/* --- LIGHTS --- */}
-        {/* Front Headlights (Left & Right) */}
-        <mesh position={[-0.72, 0.16, 2.12]}>
-          <boxGeometry args={[0.35, 0.12, 0.08]} />
-          <meshStandardMaterial
-            color="#e6ffff"
-            emissive="#e6ffff"
-            emissiveIntensity={2.5}
-          />
-        </mesh>
-        <mesh position={[0.72, 0.16, 2.12]}>
-          <boxGeometry args={[0.35, 0.12, 0.08]} />
-          <meshStandardMaterial
-            color="#e6ffff"
-            emissive="#e6ffff"
-            emissiveIntensity={2.5}
-          />
-        </mesh>
+        {/* Front Xenon / LED Projector Headlights */}
+        <group position={[-0.72, 0.16, 2.12]}>
+          <mesh>
+            <boxGeometry args={[0.35, 0.12, 0.08]} />
+            <meshStandardMaterial
+              color="#e6ffff"
+              emissive="#e6ffff"
+              emissiveIntensity={3.2}
+            />
+          </mesh>
+          {/* Projector Glass Lens */}
+          <mesh position={[0, 0, 0.045]}>
+            <planeGeometry args={[0.35, 0.12]} />
+            <meshPhysicalMaterial color="#ffffff" transmission={0.9} roughness={0.02} transparent opacity={0.6} />
+          </mesh>
+        </group>
+        <group position={[0.72, 0.16, 2.12]}>
+          <mesh>
+            <boxGeometry args={[0.35, 0.12, 0.08]} />
+            <meshStandardMaterial
+              color="#e6ffff"
+              emissive="#e6ffff"
+              emissiveIntensity={3.2}
+            />
+          </mesh>
+          {/* Projector Glass Lens */}
+          <mesh position={[0, 0, 0.045]}>
+            <planeGeometry args={[0.35, 0.12]} />
+            <meshPhysicalMaterial color="#ffffff" transmission={0.9} roughness={0.02} transparent opacity={0.6} />
+          </mesh>
+        </group>
 
         {/* Rear Taillights */}
         <mesh position={[-0.7, 0.25, -2.18]}>
@@ -420,40 +538,55 @@ export const CarModel: React.FC<CarModelProps> = ({
   );
 };
 
-// Reusable Wheel Component with Rubber Tire, Alloy Rim, and Brake Rotor
+// Reusable Wheel Component with Rubber Tire, 5-Spoke Alloy Rim, and Drilled Brake Rotor
 const WheelMesh: React.FC<{ isLeft: boolean }> = ({ isLeft }) => {
   return (
     <group>
       {/* Wheel spin group */}
       <group rotation={[0, 0, Math.PI / 2]}>
-        {/* Rubber Tire */}
+        {/* Rubber Tire with Tread Shoulder */}
         <mesh castShadow receiveShadow>
-          <cylinderGeometry args={[0.36, 0.36, 0.32, 20]} />
-          <meshStandardMaterial color="#141416" roughness={0.8} />
+          <cylinderGeometry args={[0.36, 0.36, 0.32, 24]} />
+          <meshStandardMaterial color="#111113" roughness={0.85} />
         </mesh>
 
-        {/* Alloy Rim */}
-        <mesh position={[0, isLeft ? -0.06 : 0.06, 0]}>
-          <cylinderGeometry args={[0.24, 0.24, 0.22, 16]} />
-          <meshStandardMaterial color="#d4d4d8" metalness={0.9} roughness={0.15} />
+        {/* Outer Wheel Rim Lip */}
+        <mesh position={[0, isLeft ? -0.07 : 0.07, 0]}>
+          <cylinderGeometry args={[0.26, 0.26, 0.18, 20]} />
+          <meshPhysicalMaterial color="#e4e4e7" metalness={0.92} roughness={0.12} clearcoat={0.9} />
         </mesh>
 
-        {/* Rim Spokes / Hub */}
-        <mesh position={[0, isLeft ? -0.15 : 0.15, 0]}>
-          <cylinderGeometry args={[0.1, 0.1, 0.05, 8]} />
-          <meshStandardMaterial color="#222226" metalness={0.8} />
+        {/* 5-Spoke Sport Alloy Pattern */}
+        {[0, 72, 144, 216, 288].map((deg, sIdx) => {
+          const rad = (deg * Math.PI) / 180;
+          return (
+            <mesh
+              key={sIdx}
+              position={[Math.cos(rad) * 0.11, isLeft ? -0.15 : 0.15, Math.sin(rad) * 0.11]}
+              rotation={[0, 0, rad]}
+            >
+              <boxGeometry args={[0.045, 0.03, 0.16]} />
+              <meshPhysicalMaterial color="#e4e4e7" metalness={0.92} roughness={0.15} clearcoat={0.8} />
+            </mesh>
+          );
+        })}
+
+        {/* Center Chrome Hub Cap */}
+        <mesh position={[0, isLeft ? -0.16 : 0.16, 0]}>
+          <cylinderGeometry args={[0.06, 0.06, 0.02, 12]} />
+          <meshPhysicalMaterial color="#f4f4f5" metalness={0.98} roughness={0.08} clearcoat={1.0} />
         </mesh>
 
-        {/* Brake Disc */}
+        {/* Cross-Drilled Steel Brake Rotor */}
         <mesh position={[0, isLeft ? 0.04 : -0.04, 0]}>
-          <cylinderGeometry args={[0.22, 0.22, 0.04, 16]} />
-          <meshStandardMaterial color="#71717a" metalness={0.95} roughness={0.1} />
+          <cylinderGeometry args={[0.22, 0.22, 0.03, 20]} />
+          <meshStandardMaterial color="#a1a1aa" metalness={0.96} roughness={0.18} />
         </mesh>
 
-        {/* Brake Caliper (Bright Red) */}
-        <mesh position={[0.12, isLeft ? 0.05 : -0.05, 0]}>
-          <boxGeometry args={[0.1, 0.06, 0.12]} />
-          <meshStandardMaterial color="#ff0033" roughness={0.3} metalness={0.4} />
+        {/* High-Performance Brake Caliper (Brembo Racing Red) */}
+        <mesh position={[0.13, isLeft ? 0.045 : -0.045, 0]}>
+          <boxGeometry args={[0.11, 0.07, 0.13]} />
+          <meshStandardMaterial color="#e11d48" roughness={0.25} metalness={0.5} />
         </mesh>
       </group>
     </group>

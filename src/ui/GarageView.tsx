@@ -133,7 +133,17 @@ export const GarageView: React.FC = () => {
         <Canvas
           shadows
           camera={{ position: [0, 3, 8], fov: 45 }}
-          gl={{ antialias: true }}
+          gl={{
+            antialias: true,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.1,
+          }}
+          onCreated={({ gl }) => {
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.1;
+            gl.shadowMap.enabled = true;
+            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          }}
         >
           <GarageScene config={currentCar} color={selectedCarColor} />
         </Canvas>
