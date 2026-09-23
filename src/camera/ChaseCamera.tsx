@@ -51,6 +51,9 @@ export const ChaseCamera: React.FC<ChaseCameraProps> = ({
 
     const dt = Math.min(delta, 0.05);
 
+    const isAirborne = physics ? physics.state.isAirborne : false;
+    const justLanded = physics ? physics.state.justLanded : false;
+
     // Speed ratio (0 to 1) for dynamic camera pull-back and FOV
     const speedRatio = Math.min(1.0, Math.abs(carSpeed) / 52);
 
@@ -108,21 +111,21 @@ export const ChaseCamera: React.FC<ChaseCameraProps> = ({
 
     lastCarPos.current.copy(carPos);
 
-    // Dynamic FOV for exciting sense of speed
+    // Dynamic FOV for exciting sense of speed and airtime
     const baseFov = viewMode === 'hood' ? 74 : viewMode === 'far' ? 58 : 64;
-    const targetFov = baseFov + speedRatio * 12 + (isBoosting ? 6 : 0);
+    const targetFov = baseFov + speedRatio * 12 + (isBoosting ? 6 : 0) + (isAirborne ? 5 : 0);
     if ('fov' in camera) {
       const perspCam = camera as THREE.PerspectiveCamera;
       perspCam.fov = MathUtils.damp(perspCam.fov, targetFov, 6, dt);
       perspCam.updateProjectionMatrix();
     }
 
-    // Impact / collision camera shake
-    if (collisionSeverity > 0.05) {
-      const intensity = Math.min(0.35, collisionSeverity * 0.28);
+    // Impact, landing thud & collision camera shake
+    if (justLanded || collisionSeverity > 0.05) {
+      const intensity = justLanded ? 0.38 : Math.min(0.35, collisionSeverity * 0.28);
       shakeOffset.current.set(
         (Math.random() - 0.5) * intensity,
-        (Math.random() - 0.5) * intensity * 0.5,
+        (Math.random() - 0.5) * intensity * 0.7,
         (Math.random() - 0.5) * intensity
       );
     } else {
@@ -172,8 +175,10 @@ export const ChaseCamera: React.FC<ChaseCameraProps> = ({
     } else {
       // 3. STANDARD ARCADE 3RD-PERSON CHASE VIEW (Default)
       // Camera distance & elevation
-      const dist = 6.4 + speedRatio * 1.4 + (isBoosting ? 0.8 : 0);
-      const height = 2.55 + speedRatio * 0.35;
+      const airtimeDist = isAirborne ? 1.6 : 0;
+      const airtimeHeight = isAirborne ? 0.9 : 0;
+      const dist = 6.4 + speedRatio * 1.4 + (isBoosting ? 0.8 : 0) + airtimeDist;
+      const height = 2.55 + speedRatio * 0.35 + airtimeHeight;
       const targetAhead = 7.5 + speedRatio * 3.0;
       const targetHeight = 0.95;
 

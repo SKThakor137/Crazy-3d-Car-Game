@@ -15,6 +15,8 @@ export interface CarPhysicsState {
   verticalVelocity: number;
   isAirborne: boolean;
   airTime: number;
+  suspensionDip: number;   // compression displacement on landing
+  justLanded: boolean;     // frame pulse on touchdown
   isWaterHazard: boolean;
   isMudHazard: boolean;
   isCaveZone: boolean;
@@ -39,6 +41,7 @@ export class CarPhysics {
   private rightVec = new THREE.Vector3();
   private targetHeading = 0;
   private lastTrackY = 0;
+  private lastTrackPitch = 0;
 
   constructor(
     config: CarConfig,
@@ -50,6 +53,7 @@ export class CarPhysics {
     this.trackData = trackData;
     this.targetHeading = initialRot.y;
     this.lastTrackY = initialPos.y;
+    this.lastTrackPitch = 0;
 
     this.state = {
       position: initialPos.clone(),
@@ -62,6 +66,8 @@ export class CarPhysics {
       verticalVelocity: 0,
       isAirborne: false,
       airTime: 0,
+      suspensionDip: 0,
+      justLanded: false,
       isWaterHazard: false,
       isMudHazard: false,
       isCaveZone: false,
@@ -180,7 +186,10 @@ export class CarPhysics {
     this.rightVec.set(this.forwardVec.z, 0, -this.forwardVec.x).normalize();
 
     // Lateral slip velocity
-    const lateralGrip = this.state.isDrifting ? (1 - p.driftSlipFactor) : 0.95;
+    let lateralGrip = this.state.isDrifting ? (1 - p.driftSlipFactor) : 0.95;
+    if (this.state.isMudHazard) {
+      lateralGrip *= 0.48; // Slippery loose mud rally physics
+    }
     const forwardMovement = this.forwardVec.clone().multiplyScalar(this.state.speed * dt);
     const slipMovement = this.rightVec.clone().multiplyScalar(this.state.angularVelocity * dt * (1 - lateralGrip));
 
@@ -194,16 +203,25 @@ export class CarPhysics {
     this.handleBarrierCollisions();
   }
 
-  // 3D Airtime, Jumps, Ballistic Gravity & Surface Hazards
+  // 3D Airtime, Dhalan Jumps, Ballistic Gravity & Surface Hazards
   private conformToTrack(dt: number): void {
-    const closest = MathUtils.getClosestTOnCurve(this.trackData.spline, this.state.position, 60);
+    const closest = MathUtils.getClosestTOnCurve(this.trackData.spline, this.state.position, 120);
     const targetY = closest.point.y;
     const tangent = this.trackData.spline.getTangentAt(closest.t).normalize();
     const trackPitch = Math.asin(Math.max(-1, Math.min(1, tangent.y)));
 
+    this.state.justLanded = false;
+
+    // Decay suspension dip
+    if (this.state.suspensionDip > 0.001) {
+      this.state.suspensionDip = MathUtils.damp(this.state.suspensionDip, 0, 10, dt);
+    } else {
+      this.state.suspensionDip = 0;
+    }
+
     // ── NON-ADVENTURE TRACKS: simple smooth ground conform, NO jumps/hazards ──
     if (this.trackData.theme !== 'adventure') {
-      this.state.position.y = MathUtils.damp(this.state.position.y, targetY, 18, dt);
+      this.state.position.y = MathUtils.damp(this.state.position.y, targetY - this.state.suspensionDip, 18, dt);
       this.state.pitch = MathUtils.damp(this.state.pitch, trackPitch, 14, dt);
       this.state.verticalVelocity = 0;
       this.state.isAirborne = false;
@@ -214,68 +232,104 @@ export class CarPhysics {
       return;
     }
 
-    // ── ADVENTURE TRACK ONLY: hazards, ramps, jumps ──
+    // ── ADVENTURE TRACK: hazards, ramps, dhalan jumps ──
     const t = closest.t;
 
-    // River crossing water zone (approx t between 0.28 and 0.40)
-    const inWater = (t >= 0.28 && t <= 0.40);
+    // 1. Water zone (river crossing)
+    const inWater = (t >= 0.28 && t <= 0.38);
     this.state.isWaterHazard = inWater;
     if (inWater) {
-      this.state.speed *= (1.0 - 0.06 * dt);
+      this.state.speed *= (1.0 - 0.08 * dt);
     }
 
-    // Mud bog zone (approx t between 0.48 and 0.58)
-    const inMud = (t >= 0.48 && t <= 0.58);
+    // 2. Mud zone (continuous mud highway)
+    const inMud = (t >= 0.46 && t <= 0.58);
     this.state.isMudHazard = inMud;
     if (inMud && !this.state.isBoosting) {
-      this.state.speed *= (1.0 - 0.22 * dt);
+      // Viscous rolling resistance in deep mud unless boosting
+      this.state.speed *= (1.0 - 0.36 * dt);
     }
 
-    // Cave zone (approx t between 0.68 and 0.82)
-    this.state.isCaveZone = (t >= 0.68 && t <= 0.82);
+    // 3. Cave zone (continuous subterranean tunnel)
+    this.state.isCaveZone = (t >= 0.66 && t <= 0.82);
 
-    // Jump Launch Check
-    const elevationDelta = (targetY - this.lastTrackY) / Math.max(0.001, dt);
+    // 4. Slope / Dhalan / Jump Launch Detection
+    // Track vertical change rate (m/s)
+    const roadVerticalSpeed = this.state.speed * Math.sin(trackPitch);
+    const roadPitchDelta = (trackPitch - this.lastTrackPitch) / Math.max(0.001, dt);
+    this.lastTrackPitch = trackPitch;
+
+    // Mega launch ramp zones
+    const isMegaRamp1 = (t >= 0.10 && t <= 0.15);
+    const isMegaRamp2 = (t >= 0.81 && t <= 0.86);
+    const isRampZone = isMegaRamp1 || isMegaRamp2;
+
+    // Dhalan drop detection:
+    // When driving fast forward, if the road pitches downward rapidly (crested a hill into a descent),
+    // or if the car's forward speed carries it over the crest faster than gravity can hold it:
+    const isDhalanCrest = (roadPitchDelta < -0.8 && this.state.speed > 14);
+    const isHighElevationDrop = (this.lastTrackY - targetY) > 0.35 && this.state.speed > 16;
     this.lastTrackY = targetY;
 
     if (!this.state.isAirborne) {
-      // Ramp zones specific to adventure track layout
-      const isRampZone = (t >= 0.10 && t <= 0.16) || (t >= 0.82 && t <= 0.88);
-      if (this.state.speed > 16 && (isRampZone || elevationDelta > 18)) {
+      // Check launch condition:
+      if (
+        (isRampZone && this.state.speed > 12) ||
+        (isDhalanCrest && this.state.speed > 15) ||
+        (isHighElevationDrop && this.state.speed > 18)
+      ) {
+        // LAUNCH DETACHMENT!
         this.state.isAirborne = true;
         this.state.airTime = 0.05;
-        this.state.verticalVelocity = Math.max(9.0, this.state.speed * 0.45 + (this.state.isBoosting ? 6 : 2));
-        this.state.pitch = Math.max(0.22, trackPitch);
+
+        if (isRampZone) {
+          // Mega Ramp: powerful upward kicker impulse
+          this.state.verticalVelocity = Math.max(12.0, this.state.speed * 0.55 + (this.state.isBoosting ? 8 : 4));
+          this.state.pitch = Math.max(0.35, trackPitch + 0.15);
+        } else {
+          // Dhalan / Hill Crest: preserve upward vertical momentum
+          const upwardMomentum = Math.max(0, roadVerticalSpeed);
+          this.state.verticalVelocity = upwardMomentum + (this.state.speed * 0.22) + (this.state.isBoosting ? 5 : 2);
+          this.state.pitch = Math.max(0.18, trackPitch);
+        }
+
         SoundSynth.playJumpLaunch();
       } else {
-        // Grounded: conform smoothly to track elevation
-        this.state.position.y = MathUtils.damp(this.state.position.y, targetY, 20, dt);
+        // Grounded: smoothly conform to track elevation
+        const groundWithSuspension = targetY - this.state.suspensionDip;
+        this.state.position.y = MathUtils.damp(this.state.position.y, groundWithSuspension, 20, dt);
         this.state.pitch = MathUtils.damp(this.state.pitch, trackPitch, 14, dt);
-        this.state.verticalVelocity = 0;
+        this.state.verticalVelocity = roadVerticalSpeed;
       }
     } else {
-      // AIRBORNE BALLISTIC FLIGHT
+      // ── AIRBORNE BALLISTIC FLIGHT ──
       this.state.airTime += dt;
-      const gravity = 25.0; // m/s^2
+      const gravity = 22.0; // m/s^2 realistic arcade gravity
       this.state.verticalVelocity -= gravity * dt;
       this.state.position.y += this.state.verticalVelocity * dt;
 
-      // Natural flight pitch orientation
+      // Realistic flight pitch: nose rotates according to flight velocity vector
       const targetFlightPitch = Math.atan2(
         this.state.verticalVelocity,
-        Math.max(8, Math.abs(this.state.speed))
+        Math.max(10, Math.abs(this.state.speed))
       );
-      this.state.pitch = MathUtils.damp(this.state.pitch, targetFlightPitch, 6, dt);
+      this.state.pitch = MathUtils.damp(this.state.pitch, targetFlightPitch, 5.0, dt);
 
-      // Landing detection
+      // Landing detection: car y drops to or below road height targetY
       if (this.state.position.y <= targetY) {
         this.state.position.y = targetY;
-        if (this.state.airTime > 0.28) {
+
+        if (this.state.airTime > 0.22) {
+          // Suspension compression dip on landing
+          const impactSpeed = Math.abs(this.state.verticalVelocity);
+          this.state.suspensionDip = Math.min(0.35, impactSpeed * 0.02);
+          this.state.justLanded = true;
           SoundSynth.playLandingThud();
         }
+
         this.state.isAirborne = false;
         this.state.airTime = 0;
-        this.state.verticalVelocity = 0;
+        this.state.verticalVelocity = roadVerticalSpeed;
       }
     }
   }

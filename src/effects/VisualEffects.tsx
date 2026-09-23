@@ -69,8 +69,34 @@ export const VisualEffects: React.FC<VisualEffectsProps> = ({
     const isBoosting = p ? p.isBoosting : propBoosting;
     const isWater = p ? p.isWaterHazard : false;
     const isMud = p ? p.isMudHazard : false;
+    const justLanded = p ? p.justLanded : false;
 
     if (!carPosition) return;
+
+    // 0. Landing Impact Dust Cloud Burst
+    if (justLanded) {
+      for (let d = 0; d < 14; d++) {
+        if (smokeParticles.current.length < MAX_SMOKE_PARTICLES) {
+          const angle = (d / 14) * Math.PI * 2;
+          const radialSpeed = 2.5 + Math.random() * 3.0;
+          smokeParticles.current.push({
+            pos: new THREE.Vector3(
+              carPosition.x + (Math.random() - 0.5) * 1.8,
+              carPosition.y + 0.1,
+              carPosition.z + (Math.random() - 0.5) * 1.8
+            ),
+            vel: new THREE.Vector3(
+              Math.cos(angle) * radialSpeed,
+              0.8 + Math.random() * 1.4,
+              Math.sin(angle) * radialSpeed
+            ),
+            life: 0,
+            maxLife: 0.5 + Math.random() * 0.35,
+            scale: 1.2 + Math.random() * 1.2,
+          });
+        }
+      }
+    }
 
     // 1. Skid marks calculation
     if (isDrifting && Math.abs(carSpeed) > 12) {

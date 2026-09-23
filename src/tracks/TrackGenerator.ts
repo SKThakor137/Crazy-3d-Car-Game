@@ -22,7 +22,7 @@ export interface TrackData {
 export class TrackGenerator {
   public static generate(config: TrackConfig): TrackData {
     const spline = MathUtils.createTrackSpline(config.controlPoints);
-    const divisions = 240;
+    const divisions = 480;
     const width = config.roadWidth;
     const halfWidth = width / 2;
     const kerbWidth = 1.0;

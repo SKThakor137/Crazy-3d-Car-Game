@@ -529,9 +529,9 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
           <MegaRampMesh key={`mega-ramp-${idx}`} pos={ramp.pos} rotY={ramp.rotY} width={ramp.width} />
         ))}
 
-      {/* --- ADVENTURE CRYSTAL CAVE TUNNEL --- */}
-      {config.theme === 'adventure' && sceneryData.caveArches.length > 0 && (
-        <CrystalCaveMesh arches={sceneryData.caveArches} />
+      {/* --- ADVENTURE CONTINUOUS SUBTERRANEAN CRYSTAL CAVERN --- */}
+      {config.theme === 'adventure' && (
+        <ContinuousCaveMesh spline={trackData.spline} roadWidth={config.roadWidth} />
       )}
 
       {/* --- ADVENTURE RIVER WATER RAPIDS ZONE --- */}
@@ -539,9 +539,9 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData }) => 
         <WaterRapidsMesh centerPos={sceneryData.waterRapidsPos} roadWidth={config.roadWidth} />
       )}
 
-      {/* --- ADVENTURE MUD BOG OFF-ROAD HAZARD ZONE --- */}
-      {config.theme === 'adventure' && sceneryData.mudBogPos && (
-        <MudBogMesh centerPos={sceneryData.mudBogPos} roadWidth={config.roadWidth} />
+      {/* --- ADVENTURE CONTINUOUS MUD BOG HIGHWAY --- */}
+      {config.theme === 'adventure' && (
+        <ContinuousMudMesh spline={trackData.spline} roadWidth={config.roadWidth} />
       )}
     </group>
   );
@@ -683,55 +683,354 @@ const MegaRampMesh: React.FC<{ pos: [number, number, number]; rotY: number; widt
 );
 
 // ─────────────────────────────────────────────────────────────
-// Procedural Crystal Mountain Cave Component
+// Procedural Continuous Subterranean Crystal Cavern Component
 // ─────────────────────────────────────────────────────────────
-const CrystalCaveMesh: React.FC<{ arches: Array<{ pos: THREE.Vector3; tangent: THREE.Vector3; width: number }> }> = ({
-  arches,
-}) => (
-  <group>
-    {arches.map((arch, idx) => {
-      const rotY = Math.atan2(arch.tangent.x, arch.tangent.z);
-      return (
-        <group key={`cave-arch-${idx}`} position={arch.pos.toArray()} rotation={[0, rotY, 0]}>
-          {/* Left Rock Pillar */}
-          <mesh position={[-arch.width / 2 - 2.5, 4.8, 0]} castShadow>
-            <cylinderGeometry args={[2.5, 3.2, 10, 7]} />
-            <meshStandardMaterial color="#362a22" roughness={0.95} />
-          </mesh>
-          {/* Right Rock Pillar */}
-          <mesh position={[arch.width / 2 + 2.5, 4.8, 0]} castShadow>
-            <cylinderGeometry args={[2.5, 3.2, 10, 7]} />
-            <meshStandardMaterial color="#362a22" roughness={0.95} />
-          </mesh>
-          {/* Massive Rock Tunnel Ceiling Arch */}
-          <mesh position={[0, 9.6, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[3.2, 3.2, arch.width + 5.5, 8, 1, false, 0, Math.PI]} />
-            <meshStandardMaterial color="#261d17" roughness={0.95} side={THREE.DoubleSide} />
-          </mesh>
-          {/* Glowing Cyan Stalactite */}
-          <mesh position={[-arch.width / 4, 8.0, 0]} rotation={[Math.PI, 0, 0]}>
-            <coneGeometry args={[0.55, 2.4, 6]} />
-            <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.0} />
-          </mesh>
-          {/* Glowing Purple Stalactite */}
-          <mesh position={[arch.width / 4, 8.0, 0]} rotation={[Math.PI, 0, 0]}>
-            <coneGeometry args={[0.55, 2.4, 6]} />
-            <meshStandardMaterial color="#b026ff" emissive="#b026ff" emissiveIntensity={1.0} />
-          </mesh>
-          {/* Ground Crystals */}
-          <mesh position={[-arch.width / 2 - 0.7, 0.7, 0]} rotation={[0.2, 0.3, -0.4]}>
-            <coneGeometry args={[0.4, 1.7, 6]} />
-            <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={1.2} />
-          </mesh>
-          <mesh position={[arch.width / 2 + 0.7, 0.7, 0]} rotation={[-0.2, -0.3, 0.4]}>
-            <coneGeometry args={[0.4, 1.7, 6]} />
-            <meshStandardMaterial color="#ff00cc" emissive="#ff00cc" emissiveIntensity={1.2} />
-          </mesh>
-        </group>
-      );
-    })}
-  </group>
-);
+const ContinuousCaveMesh: React.FC<{ spline: THREE.CatmullRomCurve3; roadWidth: number }> = ({
+  spline,
+  roadWidth,
+}) => {
+  const { tunnelGeometry, crystals, pointLights, portalEntry, portalExit } = useMemo(() => {
+    const steps = 36;
+    const tStart = 0.66;
+    const tEnd = 0.82;
+    const arcSegments = 8;
+    const vertices: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    const crystalsList: Array<{ pos: [number, number, number]; rot: [number, number, number]; scale: number; color: string }> = [];
+    const lightsList: Array<{ pos: [number, number, number]; color: string }> = [];
+
+    const ringRadius = roadWidth * 0.75;
+    const ringHeight = 11.0;
+
+    for (let i = 0; i <= steps; i++) {
+      const t = tStart + (i / steps) * (tEnd - tStart);
+      const pt = spline.getPointAt(t);
+      const tangent = spline.getTangentAt(t).normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+
+      // Arched cross-section profile for this ring
+      for (let j = 0; j <= arcSegments; j++) {
+        const angle = (j / arcSegments) * Math.PI; // 0 to PI
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+
+        const xOffset = cosA * ringRadius;
+        const yOffset = sinA * ringHeight;
+
+        // Rock jitter for natural craggy look
+        const jitter = (Math.sin(i * 1.6 + j * 2.2) * 0.45);
+
+        const vx = pt.x + normal.x * (xOffset + jitter);
+        const vy = pt.y + yOffset + Math.abs(jitter);
+        const vz = pt.z + normal.z * (xOffset + jitter);
+
+        vertices.push(vx, vy, vz);
+        uvs.push(j / arcSegments, (i / steps) * 8);
+      }
+
+      if (i < steps) {
+        const ring1 = i * (arcSegments + 1);
+        const ring2 = (i + 1) * (arcSegments + 1);
+        for (let j = 0; j < arcSegments; j++) {
+          const a = ring1 + j;
+          const b = ring1 + j + 1;
+          const c = ring2 + j;
+          const d = ring2 + j + 1;
+
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      // Bioluminescent Crystal Formations inside Cavern
+      if (i % 3 === 0) {
+        const crystalPalette = ['#00f0ff', '#bf00ff', '#00ff88', '#ff00aa', '#00e5ff'];
+        const cColor = crystalPalette[i % crystalPalette.length];
+
+        // Ceiling stalactite hanging down
+        crystalsList.push({
+          pos: [pt.x + (Math.sin(i) * 2.2), pt.y + ringHeight - 0.6, pt.z + (Math.cos(i) * 2.2)],
+          rot: [Math.PI + (Math.sin(i) * 0.15), 0, Math.cos(i) * 0.15],
+          scale: 1.4 + (i % 2) * 0.6,
+          color: cColor,
+        });
+
+        // Left wall crystal cluster
+        crystalsList.push({
+          pos: [pt.x - normal.x * (roadWidth / 2 + 1.2), pt.y + 0.6, pt.z - normal.z * (roadWidth / 2 + 1.2)],
+          rot: [0.35, Math.random() * Math.PI, -0.45],
+          scale: 1.0 + (i % 3) * 0.35,
+          color: cColor,
+        });
+
+        // Right wall crystal cluster
+        crystalsList.push({
+          pos: [pt.x + normal.x * (roadWidth / 2 + 1.2), pt.y + 0.6, pt.z + normal.z * (roadWidth / 2 + 1.2)],
+          rot: [0.35, Math.random() * Math.PI, 0.45],
+          scale: 1.0 + (i % 3) * 0.35,
+          color: crystalPalette[(i + 1) % crystalPalette.length],
+        });
+      }
+
+      // Dynamic Colored Point Lights through Cavern
+      if (i % 6 === 2) {
+        lightsList.push({
+          pos: [pt.x, pt.y + 5.5, pt.z],
+          color: i % 2 === 0 ? '#00e5ff' : '#bf00ff',
+        });
+      }
+    }
+
+    const tunnelGeo = new THREE.BufferGeometry();
+    tunnelGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    tunnelGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    tunnelGeo.setIndex(indices);
+    tunnelGeo.computeVertexNormals();
+
+    const pEntry = spline.getPointAt(tStart);
+    const tanEntry = spline.getTangentAt(tStart).normalize();
+    const pExit = spline.getPointAt(tEnd);
+    const tanExit = spline.getTangentAt(tEnd).normalize();
+
+    return {
+      tunnelGeometry: tunnelGeo,
+      crystals: crystalsList,
+      pointLights: lightsList,
+      portalEntry: { pos: pEntry, rotY: Math.atan2(tanEntry.x, tanEntry.z) },
+      portalExit: { pos: pExit, rotY: Math.atan2(tanExit.x, tanExit.z) },
+    };
+  }, [spline, roadWidth]);
+
+  return (
+    <group>
+      {/* Seamless Continuous Cavern Tunnel Rock Shell */}
+      <mesh geometry={tunnelGeometry}>
+        <meshStandardMaterial
+          color="#1e1510"
+          roughness={0.92}
+          metalness={0.08}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Dynamic Subterranean Interior Point Lights */}
+      {pointLights.map((light, lIdx) => (
+        <pointLight
+          key={`cave-light-${lIdx}`}
+          position={light.pos}
+          color={light.color}
+          intensity={4.5}
+          distance={55}
+          decay={2}
+        />
+      ))}
+
+      {/* Glowing Bioluminescent Crystals & Stalactites */}
+      {crystals.map((c, cIdx) => (
+        <mesh key={`crystal-${cIdx}`} position={c.pos} rotation={c.rot} scale={c.scale}>
+          <coneGeometry args={[0.55, 2.6, 6]} />
+          <meshStandardMaterial
+            color={c.color}
+            emissive={c.color}
+            emissiveIntensity={1.4}
+            roughness={0.15}
+          />
+        </mesh>
+      ))}
+
+      {/* Cavern Grand Entrance Portal */}
+      <group position={portalEntry.pos.toArray()} rotation={[0, portalEntry.rotY, 0]}>
+        {/* Massive Left Rock Arch Pillar */}
+        <mesh position={[-roadWidth / 2 - 2.8, 5.5, 0]}>
+          <cylinderGeometry args={[3.2, 4.2, 11, 7]} />
+          <meshStandardMaterial color="#2d1f16" roughness={0.95} />
+        </mesh>
+        {/* Massive Right Rock Arch Pillar */}
+        <mesh position={[roadWidth / 2 + 2.8, 5.5, 0]}>
+          <cylinderGeometry args={[3.2, 4.2, 11, 7]} />
+          <meshStandardMaterial color="#2d1f16" roughness={0.95} />
+        </mesh>
+        {/* Arched Top Keystone */}
+        <mesh position={[0, 11.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[4.2, 4.2, roadWidth + 7, 8, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial color="#22170f" roughness={0.95} />
+        </mesh>
+        {/* Entry Warning Crystal Pillars */}
+        <mesh position={[-roadWidth / 2 - 1.2, 2.2, 0]} rotation={[0.2, 0, -0.2]}>
+          <coneGeometry args={[0.7, 4.2, 6]} />
+          <meshStandardMaterial color="#00f0ff" emissive="#00f0ff" emissiveIntensity={1.8} />
+        </mesh>
+        <mesh position={[roadWidth / 2 + 1.2, 2.2, 0]} rotation={[0.2, 0, 0.2]}>
+          <coneGeometry args={[0.7, 4.2, 6]} />
+          <meshStandardMaterial color="#bf00ff" emissive="#bf00ff" emissiveIntensity={1.8} />
+        </mesh>
+      </group>
+
+      {/* Cavern Grand Exit Portal */}
+      <group position={portalExit.pos.toArray()} rotation={[0, portalExit.rotY, 0]}>
+        <mesh position={[-roadWidth / 2 - 2.8, 5.5, 0]}>
+          <cylinderGeometry args={[3.2, 4.2, 11, 7]} />
+          <meshStandardMaterial color="#2d1f16" roughness={0.95} />
+        </mesh>
+        <mesh position={[roadWidth / 2 + 2.8, 5.5, 0]}>
+          <cylinderGeometry args={[3.2, 4.2, 11, 7]} />
+          <meshStandardMaterial color="#2d1f16" roughness={0.95} />
+        </mesh>
+        <mesh position={[0, 11.2, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[4.2, 4.2, roadWidth + 7, 8, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial color="#22170f" roughness={0.95} />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// Procedural Continuous Mud Bog Highway Component
+// ─────────────────────────────────────────────────────────────
+const ContinuousMudMesh: React.FC<{ spline: THREE.CatmullRomCurve3; roadWidth: number }> = ({
+  spline,
+  roadWidth,
+}) => {
+  const { mudGeometry, puddles, mounds, bannerPos, bannerRotY } = useMemo(() => {
+    const steps = 30;
+    const tStart = 0.46;
+    const tEnd = 0.58;
+    const vertices: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    const puddlesList: Array<{ pos: [number, number, number]; scale: [number, number] }> = [];
+    const moundsList: Array<{ pos: [number, number, number]; scale: [number, number, number] }> = [];
+
+    const halfWidth = roadWidth / 2 + 1.2;
+
+    for (let i = 0; i <= steps; i++) {
+      const t = tStart + (i / steps) * (tEnd - tStart);
+      const pt = spline.getPointAt(t);
+      const tangent = spline.getTangentAt(t).normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+
+      const pLeft = pt.clone().add(normal.clone().multiplyScalar(-halfWidth));
+      const pRight = pt.clone().add(normal.clone().multiplyScalar(halfWidth));
+
+      const rutY = 0.08 + Math.sin(i * 1.8) * 0.02;
+
+      vertices.push(pLeft.x, pLeft.y + rutY, pLeft.z);
+      vertices.push(pRight.x, pRight.y + rutY, pRight.z);
+
+      uvs.push(0, (i / steps) * 9);
+      uvs.push(1, (i / steps) * 9);
+
+      if (i < steps) {
+        const base = i * 2;
+        const next = (i + 1) * 2;
+        indices.push(base, base + 1, next);
+        indices.push(next, base + 1, next + 1);
+      }
+
+      // Wet Specular Mud Puddles
+      if (i % 3 === 1) {
+        const sideOff = (Math.sin(i * 3.5) * (roadWidth * 0.28));
+        const puddlePt = pt.clone().add(normal.clone().multiplyScalar(sideOff));
+        puddlesList.push({
+          pos: [puddlePt.x, puddlePt.y + rutY + 0.025, puddlePt.z],
+          scale: [roadWidth * 0.45, 14 + (i % 2) * 6],
+        });
+      }
+
+      // Muddy Earthen Embankments along road edges
+      if (i % 2 === 0) {
+        const leftMound = pt.clone().add(normal.clone().multiplyScalar(-halfWidth - 1.2));
+        const rightMound = pt.clone().add(normal.clone().multiplyScalar(halfWidth + 1.2));
+        moundsList.push({
+          pos: [leftMound.x, leftMound.y + 0.6, leftMound.z],
+          scale: [2.8, 1.3 + Math.random() * 0.6, 4.2],
+        });
+        moundsList.push({
+          pos: [rightMound.x, rightMound.y + 0.6, rightMound.z],
+          scale: [2.8, 1.3 + Math.random() * 0.6, 4.2],
+        });
+      }
+    }
+
+    const mudGeo = new THREE.BufferGeometry();
+    mudGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    mudGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    mudGeo.setIndex(indices);
+    mudGeo.computeVertexNormals();
+
+    const startPt = spline.getPointAt(tStart);
+    const startTan = spline.getTangentAt(tStart).normalize();
+
+    return {
+      mudGeometry: mudGeo,
+      puddles: puddlesList,
+      mounds: moundsList,
+      bannerPos: startPt,
+      bannerRotY: Math.atan2(startTan.x, startTan.z),
+    };
+  }, [spline, roadWidth]);
+
+  return (
+    <group>
+      {/* Continuous Mud Road Ribbon */}
+      <mesh geometry={mudGeometry}>
+        <meshStandardMaterial
+          color="#332014"
+          roughness={0.96}
+          metalness={0.04}
+          polygonOffset
+          polygonOffsetFactor={-2}
+        />
+      </mesh>
+
+      {/* Reflective Wet Mud Puddle Patches */}
+      {puddles.map((p, pIdx) => (
+        <mesh key={`puddle-${pIdx}`} position={p.pos} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={p.scale} />
+          <meshStandardMaterial
+            color="#180e08"
+            roughness={0.08}
+            metalness={0.88}
+            transparent
+            opacity={0.88}
+          />
+        </mesh>
+      ))}
+
+      {/* Muddy Earthen Embankment Clumps */}
+      {mounds.map((m, mIdx) => (
+        <mesh key={`mud-mound-${mIdx}`} position={m.pos} scale={m.scale}>
+          <dodecahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial color="#3a2416" roughness={0.98} />
+        </mesh>
+      ))}
+
+      {/* Caution Mud Bog Overhead Hazard Gantry */}
+      <group position={bannerPos.toArray()} rotation={[0, bannerRotY, 0]}>
+        <mesh position={[-roadWidth / 2 - 1.0, 3.5, 0]}>
+          <boxGeometry args={[0.5, 7.0, 0.5]} />
+          <meshStandardMaterial color="#222" metalness={0.8} />
+        </mesh>
+        <mesh position={[roadWidth / 2 + 1.0, 3.5, 0]}>
+          <boxGeometry args={[0.5, 7.0, 0.5]} />
+          <meshStandardMaterial color="#222" metalness={0.8} />
+        </mesh>
+        <mesh position={[0, 6.8, 0]}>
+          <boxGeometry args={[roadWidth + 2.4, 1.2, 0.3]} />
+          <meshStandardMaterial
+            color="#ff9900"
+            emissive="#ff8800"
+            emissiveIntensity={0.6}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────
 // Procedural Water Rapids Zone Component
@@ -748,24 +1047,5 @@ const WaterRapidsMesh: React.FC<{ centerPos: THREE.Vector3; roadWidth: number }>
       <planeGeometry args={[roadWidth * 2.2, 85]} />
       <meshStandardMaterial color="#ffffff" roughness={0.4} transparent opacity={0.3} />
     </mesh>
-  </group>
-);
-
-// ─────────────────────────────────────────────────────────────
-// Procedural Mud Bog Off-Road Hazard Zone Component
-// ─────────────────────────────────────────────────────────────
-const MudBogMesh: React.FC<{ centerPos: THREE.Vector3; roadWidth: number }> = ({ centerPos, roadWidth }) => (
-  <group position={[centerPos.x, centerPos.y + 0.06, centerPos.z]}>
-    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[roadWidth + 2.0, 85]} />
-      <meshStandardMaterial color="#382412" roughness={0.95} metalness={0.05} />
-    </mesh>
-    {/* Rutted Mud Tracks */}
-    {[-3, 0, 3].map((offX, rIdx) => (
-      <mesh key={`rut-${rIdx}`} position={[offX, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[1.3, 80]} />
-        <meshStandardMaterial color="#221509" roughness={0.9} />
-      </mesh>
-    ))}
   </group>
 );
