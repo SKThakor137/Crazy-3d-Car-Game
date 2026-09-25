@@ -5,6 +5,12 @@ import { CarConfig } from '../data/CarConfigs';
 
 import { CarPhysics } from './CarPhysics';
 import { SeatedOccupants } from '../characters/SeatedCharacters';
+import {
+  createCarbonFiberTexture,
+  createCarLiveryTexture,
+  createTireTreadTexture,
+  createHeadlightTexture,
+} from '../textures/ProceduralTextures';
 
 interface CarModelProps {
   config: CarConfig;
@@ -19,7 +25,17 @@ interface CarModelProps {
   driftIntensity?: number;
 }
 
-export const CarModel: React.FC<CarModelProps> = ({
+import { RealisticCarModel } from './RealisticCarModel';
+
+export const CarModel: React.FC<CarModelProps> = (props) => {
+  return (
+    <React.Suspense fallback={<ProceduralCarFallback {...props} />}>
+      <RealisticCarModel {...props} />
+    </React.Suspense>
+  );
+};
+
+const ProceduralCarFallback: React.FC<CarModelProps> = ({
   config,
   color,
   isBraking = false,
@@ -41,6 +57,12 @@ export const CarModel: React.FC<CarModelProps> = ({
   const reverseLightsGroupRef = useRef<THREE.Group>(null);
 
   const wheelSpinRef = useRef(0);
+
+  // High-Resolution Procedural PBR Textures
+  const carbonTexture = useMemo(() => createCarbonFiberTexture(), []);
+  const liveryTexture = useMemo(() => createCarLiveryTexture(color), [color]);
+  const tireTreadTexture = useMemo(() => createTireTreadTexture(), []);
+  const headlightTexture = useMemo(() => createHeadlightTexture(), []);
 
   // Soft ambient occlusion contact shadow beneath the car chassis
   const contactShadowTexture = useMemo(() => {
@@ -207,21 +229,21 @@ export const CarModel: React.FC<CarModelProps> = ({
         {/* Carbon Aerodynamic Side Skirts (Rocker Panels) */}
         <mesh position={[-0.92, -0.06, 0]}>
           <boxGeometry args={[0.12, 0.06, 1.7]} />
-          <meshStandardMaterial color="#0f0f13" roughness={0.35} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.35} metalness={0.8} />
         </mesh>
         <mesh position={[0.92, -0.06, 0]}>
           <boxGeometry args={[0.12, 0.06, 1.7]} />
-          <meshStandardMaterial color="#0f0f13" roughness={0.35} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.35} metalness={0.8} />
         </mesh>
 
         {/* Side Air Intake Scoops (Behind doors, feeding rear brakes) */}
         <mesh position={[-0.88, 0.2, -0.65]}>
           <boxGeometry args={[0.08, 0.16, 0.32]} />
-          <meshStandardMaterial color="#0a0a0d" roughness={0.6} metalness={0.5} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.5} metalness={0.6} />
         </mesh>
         <mesh position={[0.88, 0.2, -0.65]}>
           <boxGeometry args={[0.08, 0.16, 0.32]} />
-          <meshStandardMaterial color="#0a0a0d" roughness={0.6} metalness={0.5} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.5} metalness={0.6} />
         </mesh>
 
         {/* Aerodynamic Door Handles */}
@@ -277,32 +299,32 @@ export const CarModel: React.FC<CarModelProps> = ({
         {/* Front Splitter with Corner Aerodynamic Winglets */}
         <mesh position={[0, -0.06, 2.14]}>
           <boxGeometry args={[isMuscle ? 2.1 : 1.96, 0.05, 0.44]} />
-          <meshStandardMaterial color="#0c0c10" roughness={0.3} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.3} metalness={0.8} />
         </mesh>
         <mesh position={[-1.02, -0.01, 2.18]}>
           <boxGeometry args={[0.04, 0.08, 0.2]} />
-          <meshStandardMaterial color="#0c0c10" roughness={0.3} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.3} metalness={0.8} />
         </mesh>
         <mesh position={[1.02, -0.01, 2.18]}>
           <boxGeometry args={[0.04, 0.08, 0.2]} />
-          <meshStandardMaterial color="#0c0c10" roughness={0.3} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.3} metalness={0.8} />
         </mesh>
 
         {/* Dual Front Carbon Dive Plane Canards */}
         <mesh position={[-0.98, 0.07, 2.05]} rotation={[0, 0.2, 0.12]}>
           <boxGeometry args={[0.18, 0.02, 0.14]} />
-          <meshStandardMaterial color="#0c0c10" roughness={0.3} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.3} metalness={0.8} />
         </mesh>
         <mesh position={[0.98, 0.07, 2.05]} rotation={[0, -0.2, -0.12]}>
           <boxGeometry args={[0.18, 0.02, 0.14]} />
-          <meshStandardMaterial color="#0c0c10" roughness={0.3} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.3} metalness={0.8} />
         </mesh>
 
-        {/* Sculpted Hood with Power Taper */}
+        {/* Sculpted Hood with Racing Livery (Stripes & #07 Roundel) */}
         <mesh castShadow receiveShadow position={[0, 0.26, 1.1]} rotation={[-0.08, 0, 0]}>
           <boxGeometry args={[isMuscle ? 1.84 : 1.72, 0.18, 1.58]} />
           <meshPhysicalMaterial
-            color={color}
+            map={liveryTexture}
             metalness={0.88}
             roughness={0.15}
             clearcoat={1.0}
@@ -324,11 +346,11 @@ export const CarModel: React.FC<CarModelProps> = ({
         {/* Hood Carbon Heat Extraction Vents */}
         <mesh position={[-0.24, 0.36, 1.15]} rotation={[-0.08, 0, 0]}>
           <boxGeometry args={[0.16, 0.02, 0.38]} />
-          <meshStandardMaterial color="#0e0e12" roughness={0.4} metalness={0.7} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.4} metalness={0.7} />
         </mesh>
         <mesh position={[0.24, 0.36, 1.15]} rotation={[-0.08, 0, 0]}>
           <boxGeometry args={[0.16, 0.02, 0.38]} />
-          <meshStandardMaterial color="#0e0e12" roughness={0.4} metalness={0.7} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.4} metalness={0.7} />
         </mesh>
 
         {/* Muscle Hood Scoop (Viper X only) */}
@@ -404,14 +426,14 @@ export const CarModel: React.FC<CarModelProps> = ({
         />
 
         {/* ─── CABIN ROOF & PILLARS ─── */}
-        {/* Roof Top Panel */}
+        {/* Roof Top Panel with Racing Stripes */}
         <mesh
           castShadow
           position={[0, isHyper ? 0.72 : 0.82, isHyper ? -0.22 : -0.12]}
         >
           <boxGeometry args={[isMuscle ? 1.5 : 1.38, 0.06, isHyper ? 1.25 : 1.15]} />
           <meshPhysicalMaterial
-            color={color}
+            map={liveryTexture}
             metalness={0.88}
             roughness={0.15}
             clearcoat={1.0}
@@ -594,14 +616,14 @@ export const CarModel: React.FC<CarModelProps> = ({
         {/* Rear Diffuser Base */}
         <mesh position={[0, -0.06, -2.15]}>
           <boxGeometry args={[1.94, 0.18, 0.32]} />
-          <meshStandardMaterial color="#0c0c10" roughness={0.35} metalness={0.8} />
+          <meshStandardMaterial map={carbonTexture} roughness={0.35} metalness={0.8} />
         </mesh>
 
         {/* 4 Vertical Aerodynamic Diffuser Fins */}
         {[-0.45, -0.15, 0.15, 0.45].map((xVal, fIdx) => (
           <mesh key={`diff-fin-${fIdx}`} position={[xVal, -0.08, -2.17]}>
             <boxGeometry args={[0.03, 0.16, 0.28]} />
-            <meshStandardMaterial color="#0a0a0e" roughness={0.3} metalness={0.9} />
+            <meshStandardMaterial map={carbonTexture} roughness={0.3} metalness={0.9} />
           </mesh>
         ))}
 
@@ -631,7 +653,7 @@ export const CarModel: React.FC<CarModelProps> = ({
           <mesh castShadow position={[0, 0.05, 0]} rotation={[-0.08, 0, 0]}>
             <boxGeometry args={[isHyper ? 2.2 : isMuscle ? 2.0 : 1.85, 0.06, 0.45]} />
             <meshPhysicalMaterial
-              color="#111115"
+              map={carbonTexture}
               metalness={0.85}
               roughness={0.2}
               clearcoat={0.9}

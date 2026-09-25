@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
+import { useProgress } from '@react-three/drei';
 import { GameStateProvider, useGame } from './game/GameStateContext';
 import { InputManager } from './game/InputManager';
 import { MainMenu } from './ui/MainMenu';
@@ -12,6 +13,32 @@ import { PauseModal } from './ui/PauseModal';
 import { ResultsModal } from './ui/ResultsModal';
 import { GameLoop } from './game/GameLoop';
 import { PreRaceCutsceneOverlay } from './cinematics/PreRaceCutscene';
+
+// Sleek Non-Blocking Asset Loading Overlay
+const AssetLoadingOverlay: React.FC = () => {
+  const { active, progress } = useProgress();
+  if (!active || progress >= 100) return null;
+
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none transition-opacity duration-300">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-3 h-3 rounded-full bg-cyan-400 animate-ping" />
+        <span className="font-arcade text-lg tracking-widest text-cyan-400 font-bold">
+          LOADING RACE WORLD... {Math.round(progress)}%
+        </span>
+      </div>
+      <div className="w-72 h-3.5 bg-gray-900 rounded-full overflow-hidden border border-cyan-500/40 p-0.5 shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+        <div
+          className="h-full bg-gradient-to-r from-cyan-400 via-sky-400 to-orange-400 rounded-full transition-all duration-150"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <span className="font-arcade text-[10px] text-gray-400 mt-2.5 tracking-wider">
+        OPTIMIZING 3D CARS & SHADERS
+      </span>
+    </div>
+  );
+};
 
 const GameContainer: React.FC = () => {
   const { gameState, pauseRace, resumeRace, settings } = useGame();
@@ -83,7 +110,9 @@ const GameContainer: React.FC = () => {
                 }
               }}
             >
-              <GameLoop />
+              <React.Suspense fallback={null}>
+                <GameLoop />
+              </React.Suspense>
             </Canvas>
           </div>
 
@@ -103,6 +132,9 @@ const GameContainer: React.FC = () => {
           <ResultsModal />
         </>
       )}
+
+      {/* Real-time Non-blocking Asset Loading Bar */}
+      <AssetLoadingOverlay />
     </div>
   );
 };

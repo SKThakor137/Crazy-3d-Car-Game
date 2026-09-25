@@ -43,6 +43,9 @@ export class CarPhysics {
   private lastTrackY = 0;
   private lastTrackPitch = 0;
   private uphillClimbTimer = 0;
+  private peakClimbPitch = 0;
+  private peakClimbVerticalSpeed = 0;
+  private jumpCooldownTimer = 0;
 
   constructor(
     config: CarConfig,
@@ -270,53 +273,74 @@ export class CarPhysics {
     // 3. Cave zone (continuous subterranean tunnel)
     this.state.isCaveZone = (t >= 0.66 && t <= 0.82);
 
-    // 4. Slope / Dhalan / Jump Launch Detection (ONLY jump after climbing a slope!)
-    // Track vertical change rate (m/s)
-    const roadVerticalSpeed = this.state.speed * Math.sin(trackPitch);
-    const roadPitchDelta = (trackPitch - this.lastTrackPitch) / Math.max(0.001, dt);
-    this.lastTrackPitch = trackPitch;
-
-    // Track whether the car was recently climbing an uphill slope ("dhalan chadke")
-    if (trackPitch > 0.04 && this.state.speed > 8) {
-      this.uphillClimbTimer = 0.6; // remember climbing for 0.6 seconds
-    } else {
-      this.uphillClimbTimer = Math.max(0, this.uphillClimbTimer - dt);
+    // 4. Slope / Dhalan / Jump Launch Dynamics
+    // Decay jump cooldown timer after landing
+    if (this.jumpCooldownTimer > 0) {
+      this.jumpCooldownTimer = Math.max(0, this.jumpCooldownTimer - dt);
     }
 
-    // Mega launch ramp zones
-    const isMegaRamp1 = (t >= 0.10 && t <= 0.15);
-    const isMegaRamp2 = (t >= 0.81 && t <= 0.86);
-    const isRampZone = isMegaRamp1 || isMegaRamp2;
-
-    // Crest drop: ONLY triggers if the car climbed a slope first and now crests over the peak at speed!
-    const isDhalanCrest = (this.uphillClimbTimer > 0) &&
-                          (roadPitchDelta < -0.16 && this.state.speed > 13);
+    // Current road vertical speed and pitch tracking
+    const roadVerticalSpeed = this.state.speed * Math.sin(trackPitch);
+    this.lastTrackPitch = trackPitch;
     this.lastTrackY = targetY;
 
+    // Detect if car is actively climbing an uphill slope
+    // RULE 1: WHILE CLIMBING (trackPitch > 0.04), JUMPING IS STRICTLY FORBIDDEN!
+    // Car must remain 100% glued to the slope while climbing up ("dhalan chadte waqt bilkul nahi kudna")
+    const isActivelyClimbingUphill = trackPitch > 0.04;
+
+    if (isActivelyClimbingUphill && this.state.speed > 6) {
+      this.uphillClimbTimer = 0.5; // remember that car climbed uphill
+      this.peakClimbPitch = Math.max(this.peakClimbPitch, trackPitch);
+      this.peakClimbVerticalSpeed = Math.max(this.peakClimbVerticalSpeed, roadVerticalSpeed);
+    } else {
+      this.uphillClimbTimer = Math.max(0, this.uphillClimbTimer - dt);
+      if (this.uphillClimbTimer <= 0) {
+        this.peakClimbPitch = 0;
+        this.peakClimbVerticalSpeed = 0;
+      }
+    }
+
+    // RULE 2: TOP / SUMMIT REACHED DETECTION ("jab dhal ke top upar jaye")
+    // Trigger condition:
+    // 1. Car must have been climbing uphill previously (uphillClimbTimer > 0)
+    // 2. Road has reached the summit/crest and is no longer pointing upward (trackPitch <= 0.03)
+    // 3. Not in landing cooldown
+    const isAtTopSummit = (this.uphillClimbTimer > 0) &&
+                          (trackPitch <= 0.03) &&
+                          (this.jumpCooldownTimer <= 0);
+
+    // RULE 3: SPEED-PROPORTIONAL JUMP ("speed acording jump karni chhaiye")
+    // - If speed < 11.5 m/s (~41 km/h): NO JUMP! Car smoothly rolls over the top crest.
+    // - If speed >= 11.5 m/s: Car leaps according to speed (higher speed = higher & farther flight).
+    const canLaunchAtCrest = isAtTopSummit && (this.state.speed >= 11.5);
+
     if (!this.state.isAirborne) {
-      // Check launch condition: ONLY ramps or climbing crests, NEVER flat road!
-      if (
-        (isRampZone && this.state.speed > 11) ||
-        (isDhalanCrest && this.state.speed > 13)
-      ) {
-        // LAUNCH DETACHMENT! Car launches into ballistic airborne flight!
+      if (canLaunchAtCrest) {
+        // LAUNCH DETACHMENT! Car takes flight cleanly over the top summit!
         this.state.isAirborne = true;
         this.state.airTime = 0.05;
 
-        if (isRampZone) {
-          // Mega Ramp: powerful upward kicker impulse
-          this.state.verticalVelocity = Math.max(12.0, this.state.speed * 0.55 + (this.state.isBoosting ? 8 : 4));
-          this.state.pitch = Math.max(0.35, trackPitch + 0.15);
-        } else {
-          // Dhalan / Hill Crest: preserve upward momentum and launch cleanly into the drop
-          const upwardMomentum = Math.max(0, roadVerticalSpeed);
-          this.state.verticalVelocity = upwardMomentum + Math.max(3.5, this.state.speed * 0.3) + (this.state.isBoosting ? 6 : 2);
-          this.state.pitch = Math.max(0.12, trackPitch + 0.08);
-        }
+        // Speed-proportional vertical impulse:
+        // At 45 km/h: modest hop (~3.5 m/s, airtime ~0.3s)
+        // At 80 km/h: high arc (~7.5 m/s, airtime ~0.7s)
+        // At 120+ km/h / nitro: huge ballistic canyon flight (~12-16 m/s)!
+        const speedExcess = Math.max(0, this.state.speed - 11.5);
+        const nitroBoost = this.state.isBoosting ? 4.5 : 0.0;
+        this.state.verticalVelocity = Math.max(2.5, this.peakClimbVerticalSpeed * 0.65) + (speedExcess * 0.38) + nitroBoost;
+
+        // Nose points gently over the crest
+        this.state.pitch = Math.min(0.24, Math.max(0.04, this.peakClimbPitch * 0.5));
+
+        // Clear climb timer so car doesn't re-trigger in mid-air
+        this.uphillClimbTimer = 0;
+        this.peakClimbPitch = 0;
+        this.peakClimbVerticalSpeed = 0;
 
         SoundSynth.playJumpLaunch();
       } else {
-        // Grounded: smoothly conform to track elevation
+        // GROUNDED: Car is firmly glued to the asphalt road surface!
+        // While climbing uphill, car hugs the slope with zero random jumping
         const groundWithSuspension = targetY - this.state.suspensionDip;
         this.state.position.y = MathUtils.damp(this.state.position.y, groundWithSuspension, 20, dt);
         this.state.pitch = MathUtils.damp(this.state.pitch, trackPitch, 14, dt);
@@ -351,6 +375,10 @@ export class CarPhysics {
         this.state.isAirborne = false;
         this.state.airTime = 0;
         this.state.verticalVelocity = roadVerticalSpeed;
+        this.jumpCooldownTimer = 0.5; // Prevent re-jumping for 0.5s after landing
+        this.uphillClimbTimer = 0;
+        this.peakClimbPitch = 0;
+        this.peakClimbVerticalSpeed = 0;
       }
     }
   }

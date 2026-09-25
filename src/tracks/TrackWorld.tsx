@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useLoader } from '@react-three/fiber';
 import { TrackConfig } from '../data/TrackConfigs';
 import { TrackData } from './TrackGenerator';
 import { MathUtils } from '../utils/MathUtils';
@@ -149,6 +149,61 @@ const MountainTerrainEmbankment: React.FC<{ spline: THREE.CatmullRomCurve3; road
   return (
     <mesh geometry={geometry} receiveShadow castShadow>
       <meshStandardMaterial vertexColors roughness={0.92} metalness={0.08} />
+    </mesh>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// Realistic PBR Animated Water Surface (Three.js WaterNormals)
+// ─────────────────────────────────────────────────────────────
+const RealisticWaterSurface: React.FC<{
+  width: number;
+  length: number;
+  position?: [number, number, number];
+  rotation?: [number, number, number];
+  waterColor?: string;
+  repeatX?: number;
+  repeatY?: number;
+  speed?: number;
+}> = ({
+  width,
+  length,
+  position = [0, 0, 0],
+  rotation = [-Math.PI / 2, 0, 0],
+  waterColor = '#0284c7',
+  repeatX = 12,
+  repeatY = 12,
+  speed = 0.04,
+}) => {
+  const normalMap = useLoader(THREE.TextureLoader, '/textures/waternormals.jpg');
+
+  const clonedNormalMap = useMemo(() => {
+    const tex = normalMap.clone();
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatX, repeatY);
+    tex.needsUpdate = true;
+    return tex;
+  }, [normalMap, repeatX, repeatY]);
+
+  useFrame((_, delta) => {
+    clonedNormalMap.offset.x = (clonedNormalMap.offset.x + delta * speed) % 1;
+    clonedNormalMap.offset.y = (clonedNormalMap.offset.y + delta * speed * 0.7) % 1;
+  });
+
+  return (
+    <mesh position={position} rotation={rotation} receiveShadow>
+      <planeGeometry args={[width, length]} />
+      <meshStandardMaterial
+        color={waterColor}
+        normalMap={clonedNormalMap}
+        normalScale={new THREE.Vector2(0.6, 0.6)}
+        roughness={0.08}
+        metalness={0.82}
+        transparent
+        opacity={0.85}
+        envMapIntensity={2.0}
+      />
     </mesh>
   );
 };
@@ -444,28 +499,26 @@ export const TrackWorld: React.FC<TrackWorldProps> = ({ config, trackData, physi
       {/* --- OCEAN WATER FOR BEACH THEME --- */}
       {config.theme === 'beach' && (
         <group>
-          {/* Deep Ocean Water Plane */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-160, -0.6, -160]}>
-            <planeGeometry args={[1400, 1400]} />
-            <meshStandardMaterial
-              color="#0099cc"
-              roughness={0.08}
-              metalness={0.85}
-              transparent
-              opacity={0.88}
-            />
-          </mesh>
+          {/* Deep Ocean Animated Water Surface */}
+          <RealisticWaterSurface
+            width={1600}
+            length={1600}
+            position={[-160, -0.6, -160]}
+            waterColor="#0284c7"
+            repeatX={40}
+            repeatY={40}
+            speed={0.03}
+          />
           {/* Turquoise Shoreline Wave Fringe */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-80, -0.52, -80]}>
-            <planeGeometry args={[600, 600]} />
-            <meshStandardMaterial
-              color="#00e5ff"
-              roughness={0.15}
-              metalness={0.6}
-              transparent
-              opacity={0.4}
-            />
-          </mesh>
+          <RealisticWaterSurface
+            width={700}
+            length={700}
+            position={[-80, -0.52, -80]}
+            waterColor="#06b6d4"
+            repeatX={20}
+            repeatY={20}
+            speed={0.05}
+          />
         </group>
       )}
 
@@ -1183,19 +1236,24 @@ const ContinuousMudMesh: React.FC<{ spline: THREE.CatmullRomCurve3; roadWidth: n
 };
 
 // ─────────────────────────────────────────────────────────────
-// Procedural Water Rapids Zone Component
+// Procedural Water Rapids Zone Component with Animated Waves
 // ─────────────────────────────────────────────────────────────
 const WaterRapidsMesh: React.FC<{ centerPos: THREE.Vector3; roadWidth: number }> = ({ centerPos, roadWidth }) => (
   <group position={[centerPos.x, centerPos.y - 0.15, centerPos.z]}>
-    {/* Blue River Water Surface Plane */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[roadWidth * 2.6, 90]} />
-      <meshStandardMaterial color="#1a9fd6" roughness={0.05} metalness={0.88} transparent opacity={0.78} />
-    </mesh>
+    {/* Animated River Rapids Water Surface */}
+    <RealisticWaterSurface
+      width={roadWidth * 2.8}
+      length={100}
+      position={[0, 0, 0]}
+      waterColor="#0284c7"
+      repeatX={4}
+      repeatY={14}
+      speed={0.12}
+    />
     {/* Rapids White Foam */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-      <planeGeometry args={[roadWidth * 2.2, 85]} />
-      <meshStandardMaterial color="#ffffff" roughness={0.4} transparent opacity={0.3} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+      <planeGeometry args={[roadWidth * 2.2, 90]} />
+      <meshStandardMaterial color="#ffffff" roughness={0.45} transparent opacity={0.32} />
     </mesh>
   </group>
 );

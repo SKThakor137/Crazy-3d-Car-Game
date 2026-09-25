@@ -3,128 +3,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGame } from '../game/GameStateContext';
 import { SoundSynth } from '../audio/SoundSynth';
-
-// ─────────────────────────────────────────────────────────────
-//  Stylized Procedural Character (Standing Pose)
-// ─────────────────────────────────────────────────────────────
-interface StandingFigureProps {
-  gender: 'male' | 'female';
-  armPose: number; // 0 = arms down, 1 = handshake extended
-}
-
-const StandingFigure: React.FC<StandingFigureProps> = ({ gender, armPose }) => {
-  const isMale = gender === 'male';
-  const skinColor = isMale ? '#c68642' : '#d4a76a';
-  const jacketColor = isMale ? '#1a2a4a' : '#8b1a1a';
-  const pantsColor = isMale ? '#1a1a2e' : '#1a1a2e';
-  const hairColor = isMale ? '#1a1008' : '#2a1505';
-
-  // Arm angle lerped by armPose (0 = idle, 1 = extended forward for handshake)
-  const rightArmAngle = -Math.PI * 0.02 + armPose * (-Math.PI * 0.35);
-  const rightForearmAngle = armPose * (-Math.PI * 0.2);
-
-  return (
-    <group>
-      {/* HEAD */}
-      <mesh position={[0, 1.55, 0]}>
-        <sphereGeometry args={[0.12, 10, 8]} />
-        <meshStandardMaterial color={skinColor} roughness={0.6} />
-      </mesh>
-
-      {/* HAIR */}
-      {isMale ? (
-        <mesh position={[0, 1.65, -0.02]}>
-          <boxGeometry args={[0.2, 0.08, 0.2]} />
-          <meshStandardMaterial color={hairColor} roughness={0.8} />
-        </mesh>
-      ) : (
-        <>
-          <mesh position={[0, 1.65, -0.02]}>
-            <boxGeometry args={[0.22, 0.08, 0.22]} />
-            <meshStandardMaterial color={hairColor} roughness={0.8} />
-          </mesh>
-          {/* Ponytail */}
-          <mesh position={[0, 1.5, -0.16]} rotation={[0.4, 0, 0]}>
-            <boxGeometry args={[0.08, 0.25, 0.06]} />
-            <meshStandardMaterial color={hairColor} roughness={0.8} />
-          </mesh>
-        </>
-      )}
-
-      {/* TORSO */}
-      <mesh position={[0, 1.25, 0]}>
-        <boxGeometry args={[0.35, 0.38, 0.2]} />
-        <meshStandardMaterial color={jacketColor} roughness={0.5} metalness={0.1} />
-      </mesh>
-
-      {/* BELT / WAIST */}
-      <mesh position={[0, 1.04, 0]}>
-        <boxGeometry args={[0.3, 0.08, 0.18]} />
-        <meshStandardMaterial color="#111" roughness={0.4} />
-      </mesh>
-
-      {/* LEFT ARM (always idle at side) */}
-      <group position={[-0.22, 1.35, 0]}>
-        <mesh position={[0, -0.12, 0]}>
-          <boxGeometry args={[0.1, 0.24, 0.1]} />
-          <meshStandardMaterial color={jacketColor} roughness={0.5} />
-        </mesh>
-        <mesh position={[0, -0.28, 0]}>
-          <sphereGeometry args={[0.04, 6, 6]} />
-          <meshStandardMaterial color={skinColor} roughness={0.5} />
-        </mesh>
-      </group>
-
-      {/* RIGHT ARM (animated for handshake) */}
-      <group position={[0.22, 1.35, 0]} rotation={[rightArmAngle, 0, 0]}>
-        <mesh position={[0, -0.12, 0]}>
-          <boxGeometry args={[0.1, 0.24, 0.1]} />
-          <meshStandardMaterial color={jacketColor} roughness={0.5} />
-        </mesh>
-        <group position={[0, -0.24, 0]} rotation={[rightForearmAngle, 0, 0]}>
-          <mesh position={[0, -0.06, 0]}>
-            <boxGeometry args={[0.08, 0.16, 0.08]} />
-            <meshStandardMaterial color={skinColor} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, -0.16, 0]}>
-            <sphereGeometry args={[0.045, 6, 6]} />
-            <meshStandardMaterial color={skinColor} roughness={0.5} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* LEGS */}
-      <group position={[-0.08, 0.72, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.12, 0.36, 0.12]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.6} />
-        </mesh>
-        <mesh position={[0, -0.2, 0]}>
-          <boxGeometry args={[0.11, 0.32, 0.11]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.6} />
-        </mesh>
-        <mesh position={[0, -0.38, 0.02]}>
-          <boxGeometry args={[0.12, 0.06, 0.18]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-      </group>
-      <group position={[0.08, 0.72, 0]}>
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[0.12, 0.36, 0.12]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.6} />
-        </mesh>
-        <mesh position={[0, -0.2, 0]}>
-          <boxGeometry args={[0.11, 0.32, 0.11]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.6} />
-        </mesh>
-        <mesh position={[0, -0.38, 0.02]}>
-          <boxGeometry args={[0.12, 0.06, 0.18]} />
-          <meshStandardMaterial color="#111" roughness={0.3} />
-        </mesh>
-      </group>
-    </group>
-  );
-};
+import { StandingCharacter } from '../characters/CharacterModel';
 
 // ─────────────────────────────────────────────────────────────
 //  3D Cutscene: Characters meet, handshake, enter the car
@@ -148,6 +27,7 @@ export const PreRaceCutscene3D: React.FC<PreRaceCutscene3DProps> = ({
   const partnerGroupRef = useRef<THREE.Group>(null);
   const [armPoseRider, setArmPoseRider] = useState(0);
   const [armPosePartner, setArmPosePartner] = useState(0);
+  const [isWalking, setIsWalking] = useState(true);
   const [visible, setVisible] = useState(true);
 
   // Calculate world positions relative to car
@@ -185,6 +65,12 @@ export const PreRaceCutscene3D: React.FC<PreRaceCutscene3DProps> = ({
     const ENTER_START = 4.2;
     const ENTER_END = 5.8;       // Characters "enter" car (fade/shrink)
     const TRANSITION_END = TOTAL_DURATION;
+
+    // Track walking animation state
+    const currentlyWalking = t < WALK_END || (t >= ENTER_START && t < ENTER_END);
+    if (currentlyWalking !== isWalking) {
+      setIsWalking(currentlyWalking);
+    }
 
     // 1. WALK PHASE: Characters approach meet point
     if (t < WALK_END) {
@@ -322,12 +208,12 @@ export const PreRaceCutscene3D: React.FC<PreRaceCutscene3DProps> = ({
     <group>
       {/* Rider (Male Driver) */}
       <group ref={riderGroupRef} position={riderStartPos.toArray()}>
-        <StandingFigure gender="male" armPose={armPoseRider} />
+        <StandingCharacter gender="male" armPose={armPoseRider} isWalking={isWalking} />
       </group>
 
       {/* Partner (Female Co-pilot) */}
       <group ref={partnerGroupRef} position={partnerStartPos.toArray()}>
-        <StandingFigure gender="female" armPose={armPosePartner} />
+        <StandingCharacter gender="female" armPose={armPosePartner} isWalking={isWalking} />
       </group>
     </group>
   );
