@@ -11,6 +11,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              arcade: ['Orbitron', 'sans-serif'],
+              sans: ['Rajdhani', 'sans-serif'],
+            },
+            colors: {
+              cyan: {
+                400: '#00f0ff',
+                500: '#00d2df',
+              }
+            }
+          }
+        }
+      }
+    </script>
   </head>
   <body class="bg-black text-white select-none overflow-hidden touch-none">
     <div id="root"></div>
